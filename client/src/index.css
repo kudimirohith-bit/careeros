@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens (High-Contrast Dark Theme) ───────────────────── */
+:root {
+  --sidebar-bg:       #12141A;
+  --main-bg:          #171922;
+  --card-bg:          #1E202B;
+  --card-border:      #2B2E3C;
+  --accent:           #8B5CF6;
+  --accent-hover:     #7C3AED;
+  --accent-light:     rgba(139, 92, 246, 0.15);
+  --btn-blue:         #2563EB;
+  --text-primary:     #FFFFFF;
+  --text-secondary:   #CBD5E1;
+  --text-muted:       #94A3B8;
+  --card-shadow:      0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background: var(--main-bg);
+  color: var(--text-primary);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #12141A; }
+::-webkit-scrollbar-thumb { background: #2B2E3C; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ─── Sidebar nav pill transition ────────────────────────────── */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #FFFFFF;
+}
+
+.nav-link.active {
+  background: #252836;
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav-link .nav-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  color: #64748B;
+  transition: color 0.2s ease;
+}
+
+.nav-link.active .nav-icon {
+  color: #C084FC;
+}
+
+/* ─── Card Base & High-Contrast Typography Overrides ─────────── */
+.card {
+  background: var(--card-bg);
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
+  color: #FFFFFF;
+}
+
+/* Force high visibility contrast for text headings & body in dark mode */
+.text-slate-900, .text-slate-800, .text-slate-700 {
+  color: #F8FAFC !important;
+}
+
+.text-slate-600, .text-slate-500 {
+  color: #CBD5E1 !important;
+}
+
+.text-slate-400 {
+  color: #94A3B8 !important;
+}
+
+/* Dark container inner panels */
+.bg-slate-50, .bg-slate-100, .bg-slate-100\/50, .bg-[#F8FAFC] {
+  background-color: #14161E !important;
+  color: #F8FAFC !important;
+}
+
+.bg-white {
+  background-color: #191B24 !important;
+  color: #F8FAFC !important;
+}
+
+/* Inner borders */
+.border-slate-100, .border-slate-200, .border-slate-300 {
+  border-color: #2B2E3C !important;
+}
+
+/* ─── Form Inputs & Textareas ────────────────────────────────── */
+input, textarea, select {
+  background-color: #14161E !important;
+  color: #FFFFFF !important;
+  border-color: #2B2E3C !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748B !important;
+}
+
+/* ─── Recharts SVG text visibility ────────────────────────────── */
+.recharts-[#64748B], .recharts-cartesian-axis-tick-value, .recharts-legend-item-text {
+  fill: #CBD5E1 !important;
+  color: #CBD5E1 !important;
+}
+
+/* ─── Shimmer loading animation ─────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #1E202B 25%, #2B2E3C 50%, #1E202B 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}

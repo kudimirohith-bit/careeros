@@ -1,0 +1,11 @@
+{
+  "name": "career-os",
+  "version": "1.0.0",
+  "description": "CareerOS — MERN monorepo",
+  "private": true,
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "seed": "cd server && npm run seed"
+  }
+}
