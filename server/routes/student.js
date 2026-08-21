@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
       targetRole,
       skills,
       evidenceHub: evidenceHub || {},
-      onboardingDone: true,
+      onboardingDone: false,
       careerReadiness: skills && skills.length
         ? Math.round(skills.reduce((s, sk) => s + sk.current, 0) / skills.length)
         : 0,
@@ -87,7 +87,7 @@ router.patch('/:id/complete-onboarding', async (req, res) => {
     const student = await Student.findByIdAndUpdate(
       req.params.id,
       { onboardingDone: true, evidenceHub, targetRole },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json(student);
   } catch (err) {

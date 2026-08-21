@@ -18,6 +18,8 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [toast, setToast] = useState(null);
+  const [profileAnalysis, setProfileAnalysis] = useState(null);
+  const [selectedPath, setSelectedPath] = useState(null);
 
   useEffect(() => {
     api.getStudent()
@@ -57,6 +59,10 @@ export function AppProvider({ children }) {
         toast,
         showToast,
         updateStudentSkills,
+        profileAnalysis,
+        setProfileAnalysis,
+        selectedPath,
+        setSelectedPath,
       }}
     >
       {children}

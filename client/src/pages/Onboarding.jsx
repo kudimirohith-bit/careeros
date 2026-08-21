@@ -72,19 +72,12 @@ const ROLES = [
   },
 ];
 
-const EVIDENCE_SOURCES = [
-  { id: 'github', emoji: '🐙', label: 'GitHub', desc: 'Link your repos & contributions' },
-  { id: 'codingPlatform', emoji: '💻', label: 'Coding Platform', desc: 'LeetCode, HackerRank, etc.' },
-  { id: 'resume', emoji: '📄', label: 'Resume', desc: 'Upload your latest resume' },
-  { id: 'certificates', emoji: '🎓', label: 'Certificates', desc: 'Add your certifications' },
-];
-
 /* ─── Step indicator ─────────────────────────────────────────────── */
 
-function StepDots({ step }) {
+function StepDots({ step, totalSteps = 4 }) {
   return (
     <div className="flex items-center gap-2 mb-8">
-      {[1, 2, 3].map((s) => (
+      {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
         <div key={s} className="flex items-center gap-2">
           <div
             className="rounded-full transition-all duration-300"
@@ -102,12 +95,30 @@ function StepDots({ step }) {
 
 /* ─── Step 1 — Career Goal ────────────────────────────────────────── */
 
-function StepGoal({ selected, onSelect, onNext }) {
+function StepGoal({ name, setName, selected, onSelect, onNext }) {
+  const canContinue = selected && name && name.trim() !== '';
+
   return (
     <div className="w-full max-w-2xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 1 of 3</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">What's your career goal?</h2>
-      <p className="text-[#A7ADBA] text-sm mb-8">We'll personalise your learning path around this role.</p>
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 1 of 4</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Create your profile</h2>
+      <p className="text-[#A7ADBA] text-sm mb-6">Enter your details and choose your target role to get started.</p>
+
+      {/* Name Input */}
+      <div className="p-5 rounded-2xl border border-[#282D38] bg-[#171A22] mb-6">
+        <label className="block text-sm font-semibold text-[#F5F7FA] mb-2">
+          What is your name?
+        </label>
+        <input
+          type="text"
+          placeholder="Enter your full name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl text-sm bg-[#1B1E27] border border-[#282D38] text-[#F5F7FA] placeholder-[#737B8C] focus:border-[#8B5CF6] focus:outline-none transition-colors"
+        />
+      </div>
+
+      <p className="text-[#A7ADBA] text-sm mb-4">What's your career goal? We'll personalise your learning path around this role.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {ROLES.map((role) => {
@@ -148,12 +159,12 @@ function StepGoal({ selected, onSelect, onNext }) {
 
       <button
         id="goal-next-btn"
-        disabled={!selected}
+        disabled={!canContinue}
         onClick={onNext}
         className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-200"
         style={{
-          background: selected ? '#8B5CF6' : '#282D38',
-          cursor: selected ? 'pointer' : 'not-allowed',
+          background: canContinue ? '#8B5CF6' : '#282D38',
+          cursor: canContinue ? 'pointer' : 'not-allowed',
         }}
       >
         Continue →
@@ -187,7 +198,7 @@ function StepSkills({ role, onNext, onBack }) {
 
   return (
     <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 2 of 3</p>
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 2 of 4</p>
       <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Skills we'll track</h2>
       <p className="text-[#A7ADBA] text-sm mb-8">
         For <span className="font-semibold text-[#A78BFA]">{role.label}</span>, we'll assess your current level across these areas:
@@ -224,60 +235,49 @@ function StepSkills({ role, onNext, onBack }) {
   );
 }
 
-/* ─── Step 3 — Evidence Hub ──────────────────────────────────────── */
+/* ─── Step 3 — Link Profile Links ─────────────────────────────────── */
 
-function StepEvidence({ onFinish, onBack, saving }) {
-  const [connected, setConnected] = useState({
-    github: false,
-    codingPlatform: false,
-    resume: false,
-    certificates: false,
-  });
+function StepProfileLinks({ onAnalyze, onBack, analyzing, error }) {
+  const [links, setLinks] = useState({ github: '', leetcode: '', linkedin: '' });
 
-  const toggle = (id) => setConnected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const hasAnyLink = Object.values(links).some((v) => v.trim());
 
   return (
     <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 3 of 3</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Evidence Hub</h2>
-      <p className="text-[#A7ADBA] text-sm mb-8">Connect your existing work so we can auto-assess your skills. (All optional)</p>
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 3 of 4</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Link your profiles</h2>
+      <p className="text-[#A7ADBA] text-sm mb-8">
+        Paste your profile URLs so our AI can analyze your skills. (At least one required)
+      </p>
 
-      <div className="space-y-3 mb-6">
-        {EVIDENCE_SOURCES.map(({ id, emoji, label, desc }) => {
-          const done = connected[id];
-          return (
-            <div
-              key={id}
-              className="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 bg-[#171A22]"
-              style={{
-                borderColor: done ? 'rgba(52, 211, 153, 0.4)' : '#282D38',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{emoji}</span>
-                <div>
-                  <p className="font-semibold text-[#F5F7FA] text-sm">{label}</p>
-                  <p className="text-xs text-[#737B8C]">{desc}</p>
-                </div>
-              </div>
-              <button
-                id={`connect-${id}`}
-                onClick={() => toggle(id)}
-                className="text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-200"
-                style={{
-                  background: done ? 'rgba(52, 211, 153, 0.15)' : 'rgba(139, 92, 246, 0.12)',
-                  color: done ? '#34D399' : '#A78BFA',
-                  border: `1px solid ${done ? 'rgba(52, 211, 153, 0.3)' : 'rgba(139, 92, 246, 0.25)'}`,
-                }}
-              >
-                {done ? '✓ Connected' : 'Connect'}
-              </button>
-            </div>
-          );
-        })}
+      <div className="space-y-4 mb-6">
+        {[
+          { key: 'github', emoji: '🐙', label: 'GitHub', placeholder: 'https://github.com/username' },
+          { key: 'leetcode', emoji: '💻', label: 'LeetCode', placeholder: 'https://leetcode.com/username' },
+          { key: 'linkedin', emoji: '💼', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/username' },
+        ].map(({ key, emoji, label, placeholder }) => (
+          <div key={key} className="p-4 rounded-xl border border-[#282D38] bg-[#171A22]">
+            <label className="flex items-center gap-2 text-sm font-semibold text-[#F5F7FA] mb-2">
+              <span>{emoji}</span> {label}
+            </label>
+            <input
+              type="url"
+              placeholder={placeholder}
+              value={links[key]}
+              onChange={(e) => setLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm bg-[#1B1E27] border border-[#282D38] text-[#F5F7FA] placeholder-[#737B8C] focus:border-[#8B5CF6] focus:outline-none transition-colors"
+            />
+          </div>
+        ))}
       </div>
 
-      <div className="flex gap-3 mb-4">
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div className="flex gap-3">
         <button
           onClick={onBack}
           className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22] hover:bg-[#1B1E27] transition-colors"
@@ -285,66 +285,154 @@ function StepEvidence({ onFinish, onBack, saving }) {
           ← Back
         </button>
         <button
-          id="finish-onboarding-btn"
-          onClick={() => onFinish(connected)}
-          disabled={saving}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center justify-center gap-2"
-          style={{
-            cursor: saving ? 'not-allowed' : 'pointer',
-            opacity: saving ? 0.7 : 1,
+          disabled={!hasAnyLink || analyzing}
+          onClick={() => {
+            const profileLinks = Object.entries(links)
+              .filter(([, v]) => v.trim())
+              .map(([platform, url]) => ({ platform, url: url.trim() }));
+            onAnalyze(profileLinks);
           }}
+          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center justify-center gap-2"
+          style={{ opacity: !hasAnyLink || analyzing ? 0.6 : 1, cursor: !hasAnyLink || analyzing ? 'not-allowed' : 'pointer' }}
         >
-          {saving ? (
+          {analyzing ? (
             <>
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Setting up…
+              Analyzing with AI…
             </>
           ) : (
-            'Finish & Start →'
+            'Analyze Profiles →'
           )}
         </button>
       </div>
-
-      <p className="text-center">
-        <button
-          id="skip-evidence-btn"
-          onClick={() => onFinish(connected)}
-          className="text-xs text-[#737B8C] hover:text-[#F5F7FA] underline underline-offset-2 transition-colors"
-        >
-          Skip for now
-        </button>
-      </p>
     </div>
   );
 }
 
-/* ─── Main Onboarding Component ───────────────────────────────────── */
+/* ─── Step 4 — Choose Career Path ─────────────────────────────────── */
+
+function StepCareerPaths({ analysis, onSelect, onBack }) {
+  const [picked, setPicked] = useState(null);
+
+  return (
+    <div className="w-full max-w-2xl mx-auto animate-fadein">
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 4 of 4</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Choose your path</h2>
+      <p className="text-[#A7ADBA] text-sm mb-2">{analysis.profileSummary}</p>
+      <p className="text-xs text-[#737B8C] mb-6">
+        Level: <span className="text-[#A78BFA] font-semibold">{analysis.experienceLevel}</span> ·
+        Strengths: {analysis.strengthAreas.join(', ')}
+      </p>
+
+      <div className="space-y-3 mb-6">
+        {analysis.careerPaths.map((path) => {
+          const isSelected = picked?.id === path.id;
+          return (
+            <button
+              key={path.id}
+              onClick={() => setPicked(path)}
+              className="w-full text-left p-5 rounded-2xl border transition-all duration-200"
+              style={{
+                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : '#171A22',
+                borderColor: isSelected ? '#8B5CF6' : '#282D38',
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-[#F5F7FA]">{path.title}</span>
+                <span className="text-xs font-bold text-[#34D399] bg-[rgba(52,211,153,0.1)] px-2 py-0.5 rounded-full">
+                  {path.match}% match
+                </span>
+              </div>
+              <p className="text-xs text-[#A7ADBA] mb-2">{path.rationale}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {path.keyFocusAreas.map((area) => (
+                  <span key={area} className="text-[10px] px-2 py-0.5 rounded-md bg-[#1B1E27] text-[#737B8C] border border-[#282D38]">
+                    {area}
+                  </span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={onBack}
+          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22]"
+        >
+          ← Back
+        </button>
+        <button
+          disabled={!picked}
+          onClick={() => onSelect(picked)}
+          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6]"
+          style={{ opacity: picked ? 1 : 0.5, cursor: picked ? 'pointer' : 'not-allowed' }}
+        >
+          Start with this path →
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function Onboarding() {
-  const { setStudent, setCurrentPage } = useApp();
+  const { setStudent, setCurrentPage, setProfileAnalysis, setSelectedPath } = useApp();
 
   const [step, setStep] = useState(1);
+  const [name, setName] = useState('');
   const [role, setRole] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
+  const [analysis, setAnalysis] = useState(null);
 
-  const handleFinish = async (connectedEvidence = {}) => {
+  const handleAnalyze = async (profileLinks) => {
+    setAnalyzing(true);
+    setError('');
+    try {
+      // Create student first if not exists, to get studentId
+      const selectedRole = role?.label || 'Backend Developer';
+      const skills = ROLE_SKILLS[selectedRole] || ROLE_SKILLS['Backend Developer'];
+      let student = await api.createStudent({
+        name: name.trim() || 'Alex Kumar',
+        targetRole: selectedRole,
+        skills,
+      });
+      const result = await api.analyzeProfiles(student._id, profileLinks);
+      if (result.error) throw new Error(result.error);
+      setAnalysis(result);
+      setProfileAnalysis(result);
+      setStudent(student);
+      setStep(4);
+    } catch (err) {
+      setError(err.message || 'AI analysis failed. Check your API key.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handlePathSelect = async (path) => {
     setSaving(true);
     setError('');
     try {
-      const selectedRole = role?.label || 'Backend Developer';
-      const skills = ROLE_SKILLS[selectedRole] || ROLE_SKILLS['Backend Developer'];
-      const student = await api.createStudent({
-        name: 'Alex Kumar',
-        targetRole: selectedRole,
-        skills,
-        evidenceHub: connectedEvidence,
+      setSelectedPath(path);
+      // Generate AI plan
+      const student = await api.getStudent();
+      const planResult = await api.generatePlan({
+        studentId: student._id,
+        selectedPath: path,
+        profileAnalysis: analysis,
+        preferences: { hoursPerDay: 2 },
       });
-      setStudent(student);
-      setCurrentPage('assessment');
+      if (planResult.error) throw new Error(planResult.error);
+      await api.completeOnboarding(student._id, { targetRole: path.title });
+      const updatedStudent = await api.getStudent();
+      setStudent(updatedStudent);
+      setCurrentPage('dashboard');
     } catch (err) {
-      console.error('Onboarding error:', err);
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err.message || 'Plan generation failed.');
+    } finally {
       setSaving(false);
     }
   };
@@ -375,7 +463,7 @@ export default function Onboarding() {
         </div>
 
         {/* Step dots */}
-        <StepDots step={step} />
+        <StepDots step={step} totalSteps={4} />
 
         {/* Error */}
         {error && (
@@ -387,6 +475,8 @@ export default function Onboarding() {
         {/* Step content */}
         {step === 1 && (
           <StepGoal
+            name={name}
+            setName={setName}
             selected={role}
             onSelect={setRole}
             onNext={() => setStep(2)}
@@ -400,10 +490,18 @@ export default function Onboarding() {
           />
         )}
         {step === 3 && (
-          <StepEvidence
-            onFinish={handleFinish}
+          <StepProfileLinks
+            onAnalyze={handleAnalyze}
             onBack={() => setStep(2)}
-            saving={saving}
+            analyzing={analyzing}
+            error={error}
+          />
+        )}
+        {step === 4 && analysis && (
+          <StepCareerPaths
+            analysis={analysis}
+            onSelect={handlePathSelect}
+            onBack={() => setStep(3)}
           />
         )}
       </div>

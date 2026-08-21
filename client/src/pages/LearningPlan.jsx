@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../api/api';
 import TopicStepper from '../components/TopicStepper';
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
@@ -97,6 +97,36 @@ function generatePlan(skills) {
     ];
     return { day, date: null, tasks };
   });
+}
+
+function convertAiPlanToLocal(aiPlan) {
+  // Map AI weeklyPlans into the flat 5-day format the existing UI expects
+  const allDays = aiPlan.weeklyPlans.flatMap((w) => w.days);
+  return DAYS.map((dayName, i) => {
+    const aiDay = allDays[i];
+    if (!aiDay) {
+      return { day: dayName, date: null, tasks: [] };
+    }
+    return {
+      day: dayName,
+      date: aiDay.date,
+      tasks: aiDay.tasks.map((t) => ({
+        id: t.id,
+        label: t.title,
+        type: mapCategory(t.category),
+        mins: t.estimatedMinutes,
+        skill: t.category,
+      })),
+    };
+  });
+}
+
+function mapCategory(cat) {
+  const map = {
+    'DSA': 'Solve', 'System Design': 'Learn', 'Project': 'Practice',
+    'Learning': 'Learn', 'Revision': 'Read', 'Behavioural': 'Practice',
+  };
+  return map[cat] || 'Learn';
 }
 
 const TYPE_STYLE = {
@@ -295,7 +325,8 @@ export default function LearningPlan() {
   const skills  = student?.skills ?? [];
   const weekDates = getWeekDates();
 
-  const [plan,           setPlan]           = useState(() => generatePlan(skills));
+  const [aiPlan, setAiPlan] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(true);
   const [checkedMap,     setCheckedMap]     = useState({});
   const [toasts,         setToasts]         = useState([]);
   const [fading,         setFading]         = useState(false);
@@ -303,6 +334,34 @@ export default function LearningPlan() {
   const [activeTask,     setActiveTask]     = useState(null);
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [viewMode,       setViewMode]       = useState('grid'); // 'grid' | 'today'
+
+  // Load AI plan on mount
+  useEffect(() => {
+    if (!student?._id) return;
+    api.getPlan(student._id)
+      .then((result) => {
+        if (result?.plan) {
+          setAiPlan(result.plan);
+          const completedIds = result.plan.completedTaskIds || [];
+          const initialChecked = {};
+          const localPlan = convertAiPlanToLocal(result.plan);
+          localPlan.forEach((dayData, dIdx) => {
+            dayData.tasks.forEach((task, tIdx) => {
+              if (completedIds.includes(task.id)) {
+                initialChecked[`${dIdx}-${tIdx}`] = true;
+              }
+            });
+          });
+          setCheckedMap(initialChecked);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingAi(false));
+  }, [student?._id]);
+
+  const plan = aiPlan
+    ? convertAiPlanToLocal(aiPlan)
+    : generatePlan(skills);
 
   const pushToast = (message, positive) => {
     const id = Date.now();
@@ -332,6 +391,14 @@ export default function LearningPlan() {
 
     setCheckedMap((prev) => ({ ...prev, [key]: !wasChecked }));
 
+    if (task.id && student?._id) {
+      try {
+        await api.completeAiTask(student._id, task.id);
+      } catch (err) {
+        console.error('Failed to complete AI task:', err);
+      }
+    }
+
     if (task.skill && student?.skills) {
       const updatedSkills = student.skills.map((s) =>
         s.name === task.skill
@@ -359,7 +426,6 @@ export default function LearningPlan() {
     setFading(true);
     setCheckedMap({});
     setTimeout(() => {
-      setPlan(generatePlan(skills));
       setFading(false);
     }, 350);
   };
@@ -385,6 +451,11 @@ export default function LearningPlan() {
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border border-[rgba(139,92,246,0.3)]">
                 WEEK OF {fmtDate(weekDates[0]).toUpperCase()}
               </span>
+              {aiPlan && (
+                <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border border-[rgba(139,92,246,0.3)]">
+                  {aiPlan.mode === 'interview_sprint' ? '🔥 Sprint' : '🌱 Growth'}
+                </span>
+              )}
               {syncing && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[#A78BFA] font-medium">
                   <span className="w-2.5 h-2.5 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin" />
@@ -392,7 +463,9 @@ export default function LearningPlan() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-[#F5F7FA]">Your Adaptive Learning Plan</h1>
+            <h1 className="text-2xl font-bold text-[#F5F7FA]">
+              {aiPlan ? aiPlan.planTitle : 'Your Adaptive Learning Plan'}
+            </h1>
             <p className="text-xs text-[#A7ADBA]">
               Target Goal: <span className="text-[#F5F7FA] font-semibold">{student?.targetRole ?? 'Full-Stack Developer'}</span> · {totalTasks} tasks · ~{totalMins} min study time
             </p>

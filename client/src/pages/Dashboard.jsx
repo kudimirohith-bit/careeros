@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import GeminiKeyBanner from '../components/GeminiKeyBanner';
+import CoachChat from '../components/CoachChat';
+import BonusTasks from '../components/BonusTasks';
+import { api } from '../api/api';
 
 function useCountUp(target, duration = 1000) {
   const [value, setValue] = useState(0);
@@ -150,13 +154,12 @@ function SkillGapsCard({ skillGaps }) {
   );
 }
 
-function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCurrentPage }) {
-  const [completedMap, setCompletedMap] = useState({});
-
+function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCurrentPage, completedMap, setCompletedMap }) {
   const toggleTask = async (task, idx) => {
-    const nextCompleted = { ...completedMap, [idx]: !completedMap[idx] };
+    if (task.done || completedMap[idx]) return;
+    const nextCompleted = { ...completedMap, [idx]: true };
     setCompletedMap(nextCompleted);
-    const allDone = missionTasks.every((_, i) => nextCompleted[i]);
+    const allDone = missionTasks.every((t, i) => t.done || nextCompleted[i]);
     await handleMissionCheck(task, allDone);
   };
 
@@ -184,7 +187,7 @@ function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCu
 
       <div className="space-y-3">
         {missionTasks.map((task, idx) => {
-          const isDone = !!completedMap[idx];
+          const isDone = task.done || !!completedMap[idx];
           return (
             <div
               key={idx}
@@ -216,6 +219,22 @@ function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCu
 
 export default function Dashboard() {
   const { student, updateStudentSkills, showToast, setCurrentPage } = useApp();
+  const [aiTasks, setAiTasks] = useState([]);
+  const [aiPlan, setAiPlan] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(true);
+  const [completedMap, setCompletedMap] = useState({});
+
+  useEffect(() => {
+    if (!student?._id) return;
+    setLoadingAi(true);
+    api.getTodaysTasks(student._id)
+      .then((result) => {
+        if (result?.tasks?.length) setAiTasks(result.tasks);
+        if (result?.plan) setAiPlan(result.plan);
+      })
+      .catch((err) => console.error('Failed to load AI tasks:', err))
+      .finally(() => setLoadingAi(false));
+  }, [student?._id]);
 
   if (!student) {
     return (
@@ -242,24 +261,44 @@ export default function Dashboard() {
   // Next Best Action: skill with biggest gap
   const biggestGap = skillGaps[0];
 
-  // Daily mission tasks: top 3 gap skills
-  const missionTasks = skillGaps.slice(0, 3).map((s) => ({
-    label: `Practice ${s.name}`,
-    skill: s.name,
-    done: false,
-  }));
+  // Daily mission tasks: if AI plan exists, use AI tasks for missions; else fall back to skill-gap tasks
+  const missionTasks = aiTasks.length > 0
+    ? aiTasks.map((t) => ({
+        id: t.id,
+        label: t.title,
+        skill: t.category,
+        done: aiPlan?.completedTaskIds?.includes(t.id) || false,
+        estimatedMinutes: t.estimatedMinutes,
+      }))
+    : skillGaps.slice(0, 3).map((s) => ({
+        label: `Practice ${s.name}`,
+        skill: s.name,
+        done: false,
+      }));
 
   const handleMissionCheck = async (task, allDone) => {
+    // If AI task, call complete-task endpoint
+    if (task.id && student?._id) {
+      try {
+        await api.completeAiTask(student._id, task.id);
+      } catch (err) {
+        console.error('Failed to complete AI task:', err);
+      }
+    }
+    // Also update skills as before
     const updatedSkills = (student.skills || []).map((s) =>
       s.name === task.skill ? { ...s, current: Math.min(100, s.current + 2) } : s
     );
-    await updateStudentSkills(updatedSkills, `Completed daily mission: ${task.label}`);
+    await updateStudentSkills(updatedSkills, `Completed: ${task.label}`);
     if (showToast) showToast(`+2% ${task.skill} 🎯`);
-    if (allDone && showToast) showToast('🎉 Daily Mission Complete! Career Readiness +1%');
+    if (allDone && showToast) showToast('🎉 Daily Mission Complete!');
   };
+
+  const allMissionsDone = missionTasks.length > 0 && missionTasks.every((t, i) => t.done || completedMap[i]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      <GeminiKeyBanner />
       {/* Top Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -288,8 +327,13 @@ export default function Dashboard() {
           handleMissionCheck={handleMissionCheck}
           biggestGap={biggestGap}
           setCurrentPage={setCurrentPage}
+          completedMap={completedMap}
+          setCompletedMap={setCompletedMap}
         />
       </div>
+
+      <BonusTasks studentId={student?._id} allDone={allMissionsDone} />
+      <CoachChat studentId={student?._id} />
     </div>
   );
 }
