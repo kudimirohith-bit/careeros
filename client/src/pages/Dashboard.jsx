@@ -1,14 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
-
-/* ─── Helpers ─────────────────────────────────────────────────────── */
-const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 
 function useCountUp(target, duration = 1000) {
   const [value, setValue] = useState(0);
   useEffect(() => {
-    if (!target) return;
+    if (!target && target !== 0) return;
     let start = null;
     const step = (ts) => {
       if (!start) start = ts;
@@ -21,70 +18,68 @@ function useCountUp(target, duration = 1000) {
   return value;
 }
 
-/* ─── Fake Area Chart Data matching screenshot wave ──────────────── */
 const GRAPH_WAVE = [
   { day: 'Mon', val: 52 },
-  { day: 'Tue', val: 68 },
-  { day: 'Wed', val: 58 },
-  { day: 'Thu', val: 82 },
-  { day: 'Fri', val: 64 },
-  { day: 'Sat', val: 76 },
-  { day: 'Sun', val: 72 },
+  { day: 'Tue', val: 55 },
+  { day: 'Wed', val: 57 },
+  { day: 'Thu', val: 60 },
+  { day: 'Fri', val: 61 },
+  { day: 'Sat', val: 65 },
+  { day: 'Sun', val: 68 },
 ];
 
-/* ─── Main Hero Card (Matches top balance card in screenshot) ───── */
 function HeroBalanceCard({ student }) {
-  const readiness = student?.careerReadiness ?? 72;
+  const readiness = student?.careerReadiness ?? 0;
   const count = useCountUp(readiness);
 
   return (
-    <div className="card p-6 md:p-8 space-y-6" style={{ background: '#1E202B', borderColor: '#2B2E3C', borderRadius: '24px' }}>
-      {/* Header with pill toggles */}
+    <div className="card p-6 space-y-6 bg-[#171A22] border border-[#282D38]">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Career Twin Health</p>
-          <h2 className="text-xl font-extrabold text-white mt-0.5">Readiness & Skill Index</h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#737B8C]">Career Readiness Overview</p>
+          <h2 className="text-lg font-bold text-[#F5F7FA] mt-0.5">Readiness & Skill Index</h2>
         </div>
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14161E] border border-[#2B2E3C]">
-          <button className="px-3 py-1 rounded-lg text-xs font-bold bg-[#252836] text-white shadow-sm">
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-[#11131A] border border-[#282D38]">
+          <button className="px-3 py-1 rounded-md text-xs font-semibold bg-[#1B1E27] text-[#F5F7FA]">
             Total readiness
           </button>
-          <button className="px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white">
+          <button className="px-3 py-1 rounded-md text-xs font-medium text-[#737B8C] hover:text-[#A7ADBA]">
             Skill gap
           </button>
         </div>
       </div>
 
-      {/* Main big metric + Neon Curve Graph */}
+      {/* Main Metric & Area Chart */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-        {/* Left Big Number */}
         <div className="md:col-span-5 space-y-2">
           <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-black text-white tracking-tight">{count}%</span>
-            <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-              ↗ 24%
+            <span className="text-5xl font-black text-[#F5F7FA] tracking-tight">{count}%</span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-[rgba(52,211,153,0.1)] text-[#34D399] border border-[rgba(52,211,153,0.25)]">
+              ↗ Live
             </span>
           </div>
-          <p className="text-xs text-slate-400">Personalized target role: <span className="text-purple-400 font-bold">{student?.targetRole}</span></p>
+          <p className="text-xs text-[#A7ADBA]">
+            Target role: <span className="text-[#A78BFA] font-semibold">{student?.targetRole || 'Backend Developer'}</span>
+          </p>
         </div>
 
-        {/* Right Neon Purple Area Chart (Matches screenshot purple wave) */}
         <div className="md:col-span-7 h-36 relative">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={GRAPH_WAVE} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <defs>
-                <linearGradient id="neonPurple" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#A855F7" stopOpacity={0.6} />
-                  <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
+                <linearGradient id="purpleGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload?.length) {
                     return (
-                      <div className="bg-white text-slate-900 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl border border-slate-200">
-                        <p className="text-[10px] text-slate-500 font-semibold">{payload[0].payload.day}</p>
-                        <p className="text-sm font-extrabold text-purple-700">{payload[0].value}% Readiness</p>
+                      <div className="bg-[#1B1E27] text-[#F5F7FA] px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#282D38] shadow-lg">
+                        <p className="text-[10px] text-[#737B8C]">{payload[0].payload.day}</p>
+                        <p className="text-xs font-bold text-[#A78BFA]">{payload[0].value}% Readiness</p>
                       </div>
                     );
                   }
@@ -94,29 +89,24 @@ function HeroBalanceCard({ student }) {
               <Area
                 type="monotone"
                 dataKey="val"
-                stroke="#C084FC"
-                strokeWidth={4}
-                fill="url(#neonPurple)"
+                stroke="#8B5CF6"
+                strokeWidth={2.5}
+                fill="url(#purpleGlow)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 4 Mini KPI Cards (Matches bottom 4 metrics in screenshot) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#2B2E3C]">
-        {[
-          { label: 'DSA Score', val: '68%', up: true, delta: '↗ 8%' },
-          { label: 'Backend Dev', val: '82%', up: true, delta: '↗ 12%' },
-          { label: 'System Design', val: '40%', up: false, delta: '↘ 4%' },
-          { label: 'Communication', val: '57%', up: true, delta: '↗ 6%' },
-        ].map((item) => (
-          <div key={item.label} className="p-3.5 rounded-2xl bg-[#14161E] border border-[#2B2E3C]">
-            <p className="text-[11px] font-semibold text-slate-400 mb-1">{item.label}</p>
+      {/* Mini KPI Cards built dynamically from student.skills */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#282D38]">
+        {(student?.skills || []).slice(0, 4).map((s) => (
+          <div key={s.name} className="p-3.5 rounded-xl bg-[#1B1E27] border border-[#282D38]">
+            <p className="text-[11px] font-medium text-[#737B8C] mb-1 truncate">{s.name}</p>
             <div className="flex items-center justify-between">
-              <span className="text-lg font-black text-white">{item.val}</span>
-              <span className={`text-[11px] font-bold ${item.up ? 'text-emerald-400' : 'text-red-400'}`}>
-                {item.delta}
+              <span className="text-base font-bold text-[#F5F7FA]">{s.current}%</span>
+              <span className="text-[11px] font-semibold text-[#34D399]">
+                Target: {s.target}%
               </span>
             </div>
           </div>
@@ -126,155 +116,179 @@ function HeroBalanceCard({ student }) {
   );
 }
 
-/* ─── Concentric Donut / Skill Distribution (Matches Bottom Left Card) ─ */
-function SkillDonutCard({ skills }) {
-  const top4 = skills.slice(0, 4);
-
+function SkillGapsCard({ skillGaps }) {
   return (
-    <div className="card p-6 space-y-4" style={{ background: '#1E202B', borderColor: '#2B2E3C', borderRadius: '24px' }}>
+    <div className="card p-6 space-y-4 bg-[#171A22] border border-[#282D38]">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-extrabold text-white">Skill Distribution</h3>
-        <span className="text-xs font-bold text-indigo-400 hover:underline cursor-pointer">Detail ›</span>
+        <h3 className="text-base font-bold text-[#F5F7FA]">Skill Gap Analysis</h3>
+        <span className="text-xs font-semibold text-[#A78BFA]">Target Breakdown</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-        {/* SVG Concentric Rings */}
-        <div className="relative flex items-center justify-center h-44">
-          <svg width={160} height={160} viewBox="0 0 160 160">
-            {/* Outer Ring Pink */}
-            <circle cx={80} cy={80} r={65} fill="none" stroke="#EC4899" strokeWidth={10} strokeDasharray="408" strokeDashoffset="120" strokeLinecap="round" />
-            {/* Middle Ring Purple */}
-            <circle cx={80} cy={80} r={50} fill="none" stroke="#A855F7" strokeWidth={10} strokeDasharray="314" strokeDashoffset="80" strokeLinecap="round" />
-            {/* Inner Ring Cyan */}
-            <circle cx={80} cy={80} r={35} fill="none" stroke="#06B6D4" strokeWidth={10} strokeDasharray="220" strokeDashoffset="50" strokeLinecap="round" />
-            {/* Center Ring Green */}
-            <circle cx={80} cy={80} r={20} fill="none" stroke="#10B981" strokeWidth={10} strokeDasharray="125" strokeDashoffset="20" strokeLinecap="round" />
-          </svg>
-          <div className="absolute flex flex-col items-center">
-            <span className="text-2xl font-black text-white">86</span>
-            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">↗ Active</span>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="space-y-2.5">
-          {top4.map((s, idx) => {
-            const colors = ['#EC4899', '#A855F7', '#06B6D4', '#10B981'];
-            return (
-              <div key={s.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: colors[idx % 4] }} />
-                  <span className="font-semibold text-slate-300 truncate max-w-[100px]">{s.name}</span>
-                </div>
-                <span className="font-extrabold text-white">{s.current}%</span>
+      <div className="space-y-3">
+        {skillGaps.slice(0, 5).map((s) => {
+          const statusColor =
+            s.status === 'strong' ? '#34D399' : s.status === 'improve' ? '#FBBF24' : '#F87171';
+          return (
+            <div key={s.name} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-semibold text-[#F5F7FA]">{s.name}</span>
+                <span className="text-[11px] font-medium" style={{ color: statusColor }}>
+                  {s.current}% / {s.target}% ({s.gap > 0 ? `-${s.gap}%` : 'Met'})
+                </span>
               </div>
-            );
-          })}
-        </div>
+              <div className="h-2 rounded-full bg-[#1B1E27] overflow-hidden flex">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (s.current / (s.target || 100)) * 100)}%`, background: statusColor }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ─── Daily Missions Table Card (Matches Bottom Right Card in screenshot) ─ */
-function MissionsTableCard({ skills, onReadinessBump, setCurrentPage }) {
-  const missions = [
-    { title: 'Learn Arrays & HashMaps', category: 'DSA', time: '20 min', status: 'Processing', color: '#F59E0B' },
-    { title: 'REST API Best Practices', category: 'Backend', time: '15 min', status: 'Success', color: '#10B981' },
-    { title: 'System Design Load Balancing', category: 'Architecture', time: '25 min', status: 'Waiting', color: '#3B82F6' },
-  ];
+function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCurrentPage }) {
+  const [completedMap, setCompletedMap] = useState({});
+
+  const toggleTask = async (task, idx) => {
+    const nextCompleted = { ...completedMap, [idx]: !completedMap[idx] };
+    setCompletedMap(nextCompleted);
+    const allDone = missionTasks.every((_, i) => nextCompleted[i]);
+    await handleMissionCheck(task, allDone);
+  };
 
   return (
-    <div className="card p-6 space-y-4" style={{ background: '#1E202B', borderColor: '#2B2E3C', borderRadius: '24px' }}>
+    <div className="card p-6 space-y-5 bg-[#171A22] border border-[#282D38]">
+      {/* Next Best Action Banner */}
+      {biggestGap && (
+        <div className="p-4 rounded-xl bg-gradient-to-r from-[rgba(139,92,246,0.15)] to-[rgba(139,92,246,0.05)] border border-[rgba(139,92,246,0.3)]">
+          <p className="text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider mb-1">🎯 Next Best Action</p>
+          <p className="text-xs font-semibold text-[#F5F7FA]">
+            Focus on <span className="text-[#A78BFA] font-bold">{biggestGap.name}</span> (Gap: {biggestGap.gap}% to target)
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-extrabold text-white">Recent Missions</h3>
+        <h3 className="text-base font-bold text-[#F5F7FA]">Daily Missions</h3>
         <span
           onClick={() => setCurrentPage('learning-plan')}
-          className="text-xs font-bold text-indigo-400 hover:underline cursor-pointer"
+          className="text-xs font-semibold text-[#A78BFA] hover:underline cursor-pointer"
         >
-          Detail ›
+          View Plan ›
         </span>
       </div>
 
       <div className="space-y-3">
-        {missions.map((m, idx) => (
-          <div
-            key={idx}
-            className="p-3.5 rounded-2xl bg-[#14161E] border border-[#2B2E3C] flex items-center justify-between hover:border-slate-600 transition-all"
-          >
-            <div className="space-y-0.5">
-              <p className="text-xs font-bold text-white">{m.title}</p>
-              <p className="text-[10px] font-semibold text-slate-400">{m.category} • {m.time}</p>
-            </div>
-            <span
-              className="text-[10px] font-extrabold px-3 py-1 rounded-full text-white"
-              style={{ background: m.color }}
+        {missionTasks.map((task, idx) => {
+          const isDone = !!completedMap[idx];
+          return (
+            <div
+              key={idx}
+              onClick={() => toggleTask(task, idx)}
+              className="p-3.5 rounded-xl bg-[#1B1E27] border border-[#282D38] flex items-center gap-3 cursor-pointer hover:border-[#8B5CF6]/50 transition-colors"
             >
-              {m.status}
-            </span>
-          </div>
-        ))}
+              <div
+                className="w-5 h-5 rounded flex items-center justify-center border transition-all"
+                style={{
+                  background: isDone ? '#34D399' : '#11131A',
+                  borderColor: isDone ? '#34D399' : '#737B8C',
+                }}
+              >
+                {isDone && <span className="text-[#0F1117] text-xs font-bold">✓</span>}
+              </div>
+              <div className="flex-1">
+                <p className={`text-xs font-semibold ${isDone ? 'line-through text-[#737B8C]' : 'text-[#F5F7FA]'}`}>
+                  {task.label}
+                </p>
+                <p className="text-[10px] text-[#A7ADBA]">Skill: {task.skill} • +2% boost</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
-
-      <button
-        onClick={onReadinessBump}
-        className="w-full py-3 rounded-xl font-bold text-xs text-white transition-all shadow-md hover:bg-purple-600"
-        style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)' }}
-      >
-        ✨ Claim Daily +1% Readiness Boost
-      </button>
     </div>
   );
 }
 
-/* ─── Main Dashboard Component ───────────────────────────────────── */
 export default function Dashboard() {
-  const { student, setStudent, setCurrentPage } = useApp();
-  const skills = student?.skills ?? [];
-
-  const bumpReadiness = () => {
-    setStudent((prev) =>
-      prev ? { ...prev, careerReadiness: Math.min(100, (prev.careerReadiness ?? 0) + 1) } : prev
-    );
-  };
+  const { student, updateStudentSkills, showToast, setCurrentPage } = useApp();
 
   if (!student) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
-        No student data found. Complete onboarding first.
+      <div className="flex items-center justify-center h-64 text-[#737B8C]">
+        Loading student dashboard...
       </div>
     );
   }
 
+  // Skill gap analysis: computed from student.skills
+  const skillGaps = (student.skills || [])
+    .map((s) => ({
+      ...s,
+      gap: s.target - s.current,
+      status:
+        s.current >= s.target
+          ? 'strong'
+          : s.target - s.current <= 10
+          ? 'improve'
+          : 'gap',
+    }))
+    .sort((a, b) => b.gap - a.gap);
+
+  // Next Best Action: skill with biggest gap
+  const biggestGap = skillGaps[0];
+
+  // Daily mission tasks: top 3 gap skills
+  const missionTasks = skillGaps.slice(0, 3).map((s) => ({
+    label: `Practice ${s.name}`,
+    skill: s.name,
+    done: false,
+  }));
+
+  const handleMissionCheck = async (task, allDone) => {
+    const updatedSkills = (student.skills || []).map((s) =>
+      s.name === task.skill ? { ...s, current: Math.min(100, s.current + 2) } : s
+    );
+    await updateStudentSkills(updatedSkills, `Completed daily mission: ${task.label}`);
+    if (showToast) showToast(`+2% ${task.skill} 🎯`);
+    if (allDone && showToast) showToast('🎉 Daily Mission Complete! Career Readiness +1%');
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Top Welcome Header (Matches screenshot top left text) */}
+      {/* Top Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-slate-400">Hi {student.name.split(' ')[0]},</p>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2 mt-0.5">
-            👋 Welcome back!
+          <p className="text-xs font-medium text-[#737B8C]">Overview</p>
+          <h1 className="text-2xl font-bold text-[#F5F7FA] tracking-tight mt-0.5">
+            Welcome back, {student.name.split(' ')[0]} 👋
           </h1>
         </div>
 
-        {/* Today / Week filter buttons (Matches top right filter in screenshot) */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#1E202B] border border-[#2B2E3C]">
-          <button className="px-4 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-[#171A22] border border-[#282D38]">
+          <button className="px-3 py-1 rounded-md text-xs font-medium text-[#737B8C] hover:text-[#A7ADBA]">
             Today
           </button>
-          <button className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#252836] text-white shadow-sm">
+          <button className="px-3 py-1 rounded-md text-xs font-semibold bg-[#1B1E27] text-[#F5F7FA]">
             Week
           </button>
         </div>
       </div>
 
-      {/* Hero Balance / Readiness Card */}
       <HeroBalanceCard student={student} />
 
-      {/* Bottom Grid (2 Columns: Skill Donut + Recent Missions Table) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SkillDonutCard skills={skills} />
-        <MissionsTableCard skills={skills} onReadinessBump={bumpReadiness} setCurrentPage={setCurrentPage} />
+        <SkillGapsCard skillGaps={skillGaps} />
+        <DailyMissionsCard
+          missionTasks={missionTasks}
+          handleMissionCheck={handleMissionCheck}
+          biggestGap={biggestGap}
+          setCurrentPage={setCurrentPage}
+        />
       </div>
     </div>
   );

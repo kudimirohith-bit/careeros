@@ -1,19 +1,34 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens (High-Contrast Dark Theme) ───────────────────── */
+/* ─── Design Tokens (Professional Dark AI SaaS Palette) ─────────────── */
 :root {
-  --sidebar-bg:       #12141A;
-  --main-bg:          #171922;
-  --card-bg:          #1E202B;
-  --card-border:      #2B2E3C;
+  --main-bg:          #0F1117;
+  --sidebar-bg:       #11131A;
+  --topbar-bg:        #11131A;
+  --card-bg:          #171A22;
+  --card-secondary:   #1B1E27;
+  --card-hover:       #20242E;
+  --card-border:      #282D38;
+  
+  --text-primary:     #F5F7FA;
+  --text-secondary:   #A7ADBA;
+  --text-muted:       #737B8C;
+  
   --accent:           #8B5CF6;
   --accent-hover:     #7C3AED;
-  --accent-light:     rgba(139, 92, 246, 0.15);
-  --btn-blue:         #2563EB;
-  --text-primary:     #FFFFFF;
-  --text-secondary:   #CBD5E1;
-  --text-muted:       #94A3B8;
-  --card-shadow:      0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+  --accent-secondary: #A78BFA;
+  --accent-subtle:    rgba(139, 92, 246, 0.12);
+  
+  --success:          #34D399;
+  --success-subtle:   rgba(52, 211, 153, 0.10);
+  --info:             #60A5FA;
+  --info-subtle:      rgba(96, 165, 250, 0.10);
+  --warning:          #FBBF24;
+  --warning-subtle:   rgba(251, 191, 36, 0.10);
+  --danger:           #F87171;
+  --danger-subtle:    rgba(248, 113, 113, 0.10);
+
+  --card-shadow:      0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* ─── Base ───────────────────────────────────────────────────── */
@@ -26,7 +41,7 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -34,113 +49,127 @@ body {
   color: var(--text-primary);
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────── */
+/* ─── Custom Scrollbar ────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #12141A; }
-::-webkit-scrollbar-thumb { background: #2B2E3C; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-track { background: #0F1117; }
+::-webkit-scrollbar-thumb { background: #282D38; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #374151; }
 
-/* ─── Sidebar nav pill transition ────────────────────────────── */
+/* ─── Sidebar Navigation Pill Styling ─────────────────────────── */
 .nav-link {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #94A3B8;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #FFFFFF;
+  background: var(--card-secondary);
+  color: var(--text-primary);
 }
 
 .nav-link.active {
-  background: #252836;
-  color: #FFFFFF;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--text-primary);
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.25);
 }
 
 .nav-link .nav-icon {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   flex-shrink: 0;
-  color: #64748B;
+  color: var(--text-muted);
   transition: color 0.2s ease;
 }
 
 .nav-link.active .nav-icon {
-  color: #C084FC;
+  color: var(--accent-secondary);
 }
 
-/* ─── Card Base & High-Contrast Typography Overrides ─────────── */
+/* ─── Card Base ───────────────────────────────────────────────── */
 .card {
   background: var(--card-bg);
-  border-radius: 20px;
-  box-shadow: var(--card-shadow);
+  border-radius: 14px;
   border: 1px solid var(--card-border);
-  color: #FFFFFF;
+  color: var(--text-primary);
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-/* Force high visibility contrast for text headings & body in dark mode */
+.card:hover {
+  border-color: #374151;
+}
+
+/* ─── Global Contrast & Utility Classes Overrides ───────────── */
 .text-slate-900, .text-slate-800, .text-slate-700 {
-  color: #F8FAFC !important;
+  color: #F5F7FA !important;
 }
 
 .text-slate-600, .text-slate-500 {
-  color: #CBD5E1 !important;
+  color: #A7ADBA !important;
 }
 
 .text-slate-400 {
-  color: #94A3B8 !important;
+  color: #737B8C !important;
 }
 
-/* Dark container inner panels */
-.bg-slate-50, .bg-slate-100, .bg-slate-100\/50, .bg-[#F8FAFC] {
+/* Inner surface containers */
+.bg-slate-50, .bg-slate-100, .bg-slate-100\/50 {
   background-color: #14161E !important;
-  color: #F8FAFC !important;
+  color: #F5F7FA !important;
 }
 
 .bg-white {
-  background-color: #191B24 !important;
-  color: #F8FAFC !important;
+  background-color: #171A22 !important;
+  color: #F5F7FA !important;
 }
 
-/* Inner borders */
 .border-slate-100, .border-slate-200, .border-slate-300 {
-  border-color: #2B2E3C !important;
+  border-color: #282D38 !important;
 }
 
-/* ─── Form Inputs & Textareas ────────────────────────────────── */
+/* Form Inputs, Textareas, Selects */
 input, textarea, select {
   background-color: #14161E !important;
-  color: #FFFFFF !important;
-  border-color: #2B2E3C !important;
+  color: #F5F7FA !important;
+  border-color: #282D38 !important;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #64748B !important;
+  color: #737B8C !important;
 }
 
-/* ─── Recharts SVG text visibility ────────────────────────────── */
-.recharts-[#64748B], .recharts-cartesian-axis-tick-value, .recharts-legend-item-text {
-  fill: #CBD5E1 !important;
-  color: #CBD5E1 !important;
+input:focus, textarea:focus, select:focus {
+  border-color: #8B5CF6 !important;
+  outline: none;
 }
 
-/* ─── Shimmer loading animation ─────────────────────────────── */
+/* Recharts Custom Formatting */
+.recharts-cartesian-axis-tick-value, .recharts-legend-item-text {
+  fill: #A7ADBA !important;
+  color: #A7ADBA !important;
+  font-size: 12px;
+}
+
+.recharts-cartesian-grid-line {
+  stroke: #282D38 !important;
+}
+
+/* Shimmer Loading */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
 
 .shimmer {
-  background: linear-gradient(90deg, #1E202B 25%, #2B2E3C 50%, #1E202B 75%);
+  background: linear-gradient(90deg, #171A22 25%, #282D38 50%, #171A22 75%);
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite;
   border-radius: 8px;

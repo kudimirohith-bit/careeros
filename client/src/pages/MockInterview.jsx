@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useApp } from '../context/AppContext';
 
@@ -26,14 +26,12 @@ const FEEDBACK_ITEMS = [
   { type: 'tip',  text: 'Recommended: Practice 5 more HR questions to improve Communication score' },
 ];
 
-/* ─── Typewriter Effect Component ────────────────────────────────── */
 function TypewriterQuestion({ text, onComplete }) {
   const [displayed, setDisplayed] = useState('');
 
   useEffect(() => {
     setDisplayed('');
     let i = 0;
-    // 2-second typewriter effect across full text length
     const speed = Math.max(15, Math.floor(2000 / text.length));
     const timer = setInterval(() => {
       if (i < text.length) {
@@ -48,14 +46,13 @@ function TypewriterQuestion({ text, onComplete }) {
   }, [text]);
 
   return (
-    <span className="font-semibold text-slate-800 leading-relaxed text-base">
+    <span className="font-medium text-[#F5F7FA] leading-relaxed text-sm">
       {displayed}
-      {displayed.length < text.length && <span className="animate-pulse text-indigo-500 font-bold ml-0.5">|</span>}
+      {displayed.length < text.length && <span className="animate-pulse text-[#A78BFA] font-bold ml-0.5">|</span>}
     </span>
   );
 }
 
-/* ─── Animated Score Bar ─────────────────────────────────────────── */
 function ScoreBar({ label, value, delay = 0 }) {
   const [width, setWidth] = useState(0);
 
@@ -64,15 +61,15 @@ function ScoreBar({ label, value, delay = 0 }) {
     return () => clearTimeout(t);
   }, [value, delay]);
 
-  const color = value >= 75 ? '#22C55E' : value >= 65 ? '#6366F1' : '#F59E0B';
+  const color = value >= 75 ? '#34D399' : value >= 65 ? '#8B5CF6' : '#FBBF24';
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5 text-sm">
-        <span className="font-semibold text-slate-700">{label}</span>
-        <span className="font-black" style={{ color }}>{value}%</span>
+      <div className="flex items-center justify-between mb-1 text-xs">
+        <span className="font-semibold text-[#A7ADBA]">{label}</span>
+        <span className="font-bold" style={{ color }}>{value}%</span>
       </div>
-      <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-[#1B1E27] overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-1000 ease-out"
           style={{ width: `${width}%`, background: color }}
@@ -82,19 +79,17 @@ function ScoreBar({ label, value, delay = 0 }) {
   );
 }
 
-/* ─── Main Component ─────────────────────────────────────────────── */
 export default function MockInterview() {
   const { student, setStudent } = useApp();
   const [started, setStarted]       = useState(false);
   const [currentQ, setCurrentQ]     = useState(0);
   const [answers, setAnswers]       = useState(['', '', '', '']);
-  const [timer, setTimer]           = useState(180); // 3 minutes per question
+  const [timer, setTimer]           = useState(180);
   const [completed, setCompleted]   = useState(false);
-  const [saving, setSaving]         = useState(false);
+  const [, setSaving]         = useState(false);
 
   const targetRole = student?.targetRole ?? 'Backend Developer';
 
-  // Countdown timer for active question
   useEffect(() => {
     if (!started || completed) return;
     setTimer(180);
@@ -110,7 +105,6 @@ export default function MockInterview() {
     return () => clearInterval(interval);
   }, [started, currentQ, completed]);
 
-  // Submit interview results to backend
   const handleFinishInterview = async () => {
     setCompleted(true);
     if (!student?._id) return;
@@ -141,39 +135,37 @@ export default function MockInterview() {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // ── 1. INTRO SCREEN ──────────────────────────────────────────────
   if (!started) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <div className="card p-8 text-center space-y-6 border border-slate-200 shadow-xl rounded-3xl bg-gradient-to-b from-indigo-50/40 via-white to-white">
-          <div className="w-20 h-20 rounded-3xl bg-indigo-600 text-white flex items-center justify-center text-4xl mx-auto shadow-lg shadow-indigo-200">
+      <div className="max-w-xl mx-auto py-8">
+        <div className="card p-8 text-center space-y-6 bg-[#171A22] border border-[#282D38]">
+          <div className="w-16 h-16 rounded-2xl bg-[#1B1E27] text-[#A78BFA] border border-[rgba(139,92,246,0.3)] flex items-center justify-center text-3xl mx-auto">
             🤖
           </div>
 
           <div>
-            <h1 className="text-2xl font-black text-slate-800">Ready for your AI Mock Interview?</h1>
-            <p className="text-slate-500 text-sm mt-2">
-              Practice role-specific interview questions in a realistic chat-based evaluation session.
+            <h1 className="text-xl font-bold text-[#F5F7FA]">AI Mock Interview</h1>
+            <p className="text-[#A7ADBA] text-xs mt-1.5">
+              Practice role-specific interview questions in a realistic chat evaluation session.
             </p>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1B1E27] border border-[#282D38] text-[#A78BFA] text-xs font-medium">
             <span>🎯 Target Role:</span>
-            <span className="font-extrabold">{targetRole}</span>
+            <span className="font-bold text-[#F5F7FA]">{targetRole}</span>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-left text-xs text-slate-600 space-y-2">
-            <p className="font-bold text-slate-800 text-sm">📋 Session Format:</p>
-            <p>• 4 core technical & behavioral interview questions</p>
-            <p>• 3-minute timed response window per question</p>
-            <p>• Multi-dimensional AI analysis on Technical Knowledge, Clarity, and Communication</p>
+          <div className="bg-[#11131A] rounded-xl p-4 border border-[#282D38] text-left text-xs text-[#A7ADBA] space-y-2">
+            <p className="font-bold text-[#F5F7FA]">📋 Session Format:</p>
+            <p>• 4 core technical & behavioral questions</p>
+            <p>• 3-minute response window per question</p>
+            <p>• Multi-dimensional AI performance breakdown</p>
           </div>
 
           <button
             id="start-interview-btn"
             onClick={() => setStarted(true)}
-            className="w-full py-4 rounded-2xl font-black text-white text-base transition-all shadow-lg hover:shadow-indigo-200"
-            style={{ background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' }}
+            className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
           >
             🚀 Start Interview Now
           </button>
@@ -182,32 +174,28 @@ export default function MockInterview() {
     );
   }
 
-  // ── 2. ANALYSIS SCREEN ───────────────────────────────────────────
   if (completed) {
     return (
-      <div className="max-w-3xl mx-auto space-y-6 animate-fadein">
-        {/* Main Analysis Card */}
-        <div className="card p-6 border-2 border-indigo-200 space-y-6 shadow-xl rounded-3xl bg-white">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="card p-6 bg-[#171A22] border border-[#282D38] space-y-6">
+          <div className="flex items-center justify-between border-b border-[#282D38] pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-[#1B1E27] text-[#A78BFA] border border-[rgba(139,92,246,0.3)] flex items-center justify-center text-xl">
                 🤖
               </div>
               <div>
-                <h1 className="text-xl font-black text-slate-800">Interview Performance Analysis</h1>
-                <p className="text-slate-400 text-xs mt-0.5">Role: {targetRole}</p>
+                <h1 className="text-lg font-bold text-[#F5F7FA]">Interview Performance Analysis</h1>
+                <p className="text-[#737B8C] text-xs">Role: {targetRole}</p>
               </div>
             </div>
 
             <div className="text-right">
-              <p className="text-3xl font-black text-indigo-600">{ANALYSIS_SCORES.overall}%</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overall Score</p>
+              <p className="text-2xl font-bold text-[#A78BFA]">{ANALYSIS_SCORES.overall}%</p>
+              <p className="text-[10px] font-semibold text-[#737B8C] uppercase tracking-wider">Overall Score</p>
             </div>
           </div>
 
-          {/* Metric Bars */}
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             <ScoreBar label="Technical Knowledge" value={ANALYSIS_SCORES.technical} delay={0} />
             <ScoreBar label="Communication"       value={ANALYSIS_SCORES.communication} delay={100} />
             <ScoreBar label="Clarity"             value={ANALYSIS_SCORES.clarity} delay={200} />
@@ -215,27 +203,26 @@ export default function MockInterview() {
             <ScoreBar label="Completeness"        value={ANALYSIS_SCORES.completeness} delay={400} />
           </div>
 
-          <div className="h-px bg-slate-100" />
+          <div className="h-px bg-[#282D38]" />
 
-          {/* Feedback Bullet Points */}
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {FEEDBACK_ITEMS.map((item, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium border"
+                className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-medium border"
                 style={{
                   background:
-                    item.type === 'good' ? '#F0FDF4' :
-                    item.type === 'warn' ? '#FFFBEB' : '#EEF2FF',
+                    item.type === 'good' ? 'rgba(52,211,153,0.08)' :
+                    item.type === 'warn' ? 'rgba(251,191,36,0.08)' : 'rgba(139,92,246,0.08)',
                   borderColor:
-                    item.type === 'good' ? '#BBF7D0' :
-                    item.type === 'warn' ? '#FDE68A' : '#C7D2FE',
+                    item.type === 'good' ? 'rgba(52,211,153,0.2)' :
+                    item.type === 'warn' ? 'rgba(251,191,36,0.2)' : 'rgba(139,92,246,0.2)',
                   color:
-                    item.type === 'good' ? '#15803D' :
-                    item.type === 'warn' ? '#92400E' : '#4338CA',
+                    item.type === 'good' ? '#34D399' :
+                    item.type === 'warn' ? '#FBBF24' : '#A78BFA',
                 }}
               >
-                <span className="flex-shrink-0 text-base">
+                <span className="flex-shrink-0 text-sm">
                   {item.type === 'good' ? '✅' : item.type === 'warn' ? '⚠️' : '💡'}
                 </span>
                 <span>{item.text}</span>
@@ -243,7 +230,6 @@ export default function MockInterview() {
             ))}
           </div>
 
-          {/* Action Button */}
           <button
             onClick={() => {
               setCompleted(false);
@@ -251,78 +237,68 @@ export default function MockInterview() {
               setCurrentQ(0);
               setAnswers(['', '', '', '']);
             }}
-            className="w-full py-3.5 rounded-xl font-bold text-white transition-all shadow-md"
-            style={{ background: 'var(--accent)' }}
+            className="w-full py-2.5 rounded-xl font-semibold text-xs text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
           >
             🔄 Practice Another Session
           </button>
         </div>
 
-        {/* STAR Method Tip Card */}
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center gap-3">
-          <span className="text-2xl">💡</span>
-          <p className="text-xs text-amber-900 font-semibold leading-relaxed">
-            <span className="font-black text-amber-800">Use the STAR method:</span> Situation → Task → Action → Result to structure clear, impactful responses.
+        <div className="p-4 rounded-xl bg-[#171A22] border border-[rgba(251,191,36,0.25)] flex items-center gap-3">
+          <span className="text-xl text-[#FBBF24]">💡</span>
+          <p className="text-xs text-[#A7ADBA] font-medium leading-relaxed">
+            <span className="font-bold text-[#F5F7FA]">STAR method tip:</span> Situation → Task → Action → Result to structure clear responses.
           </p>
         </div>
       </div>
     );
   }
 
-  // ── 3. INTERVIEW CHAT SESSION UI ─────────────────────────────────
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Session Header & Timer */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">AI Mock Interview Session</h1>
-          <p className="text-xs text-slate-400 font-medium">Question {currentQ + 1} of {QUESTIONS.length}</p>
+          <h1 className="text-lg font-bold text-[#F5F7FA]">AI Mock Interview Session</h1>
+          <p className="text-xs text-[#737B8C]">Question {currentQ + 1} of {QUESTIONS.length}</p>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100">
-            <span className="text-xs font-semibold text-indigo-500">⏱ Timer:</span>
-            <span className={`font-mono font-bold text-sm ${timer <= 30 ? 'text-red-600 animate-pulse' : 'text-indigo-700'}`}>
-              {fmtTimer(timer)}
-            </span>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#171A22] border border-[#282D38]">
+          <span className="text-xs font-medium text-[#737B8C]">Timer:</span>
+          <span className={`font-mono font-bold text-xs ${timer <= 30 ? 'text-[#F87171] animate-pulse' : 'text-[#A78BFA]'}`}>
+            {fmtTimer(timer)}
+          </span>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-[#1B1E27] rounded-full overflow-hidden">
         <div
-          className="h-full bg-indigo-600 transition-all duration-300 rounded-full"
+          className="h-full bg-[#8B5CF6] transition-all duration-300 rounded-full"
           style={{ width: `${((currentQ + 1) / QUESTIONS.length) * 100}%` }}
         />
       </div>
 
-      {/* Chat Layout: Left AI Question, Right Student Response */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* Left: Interviewer Avatar + Bubble (5 cols) */}
-        <div className="md:col-span-5 card p-5 border border-slate-200 space-y-4 bg-slate-50/50">
+        <div className="md:col-span-5 card p-5 border border-[#282D38] space-y-4 bg-[#171A22]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-bold shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-[#1B1E27] text-[#A78BFA] flex items-center justify-center text-base border border-[rgba(139,92,246,0.3)]">
               🤖
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">AI Interviewer</p>
-              <p className="text-[11px] font-semibold text-emerald-600">● Asking Question</p>
+              <p className="text-xs font-bold text-[#F5F7FA]">AI Interviewer</p>
+              <p className="text-[10px] font-semibold text-[#34D399]">● Asking Question</p>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm min-h-[120px] flex items-center">
+          <div className="bg-[#1B1E27] p-4 rounded-xl border border-[#282D38] min-h-[120px] flex items-center">
             <TypewriterQuestion text={QUESTIONS[currentQ]} />
           </div>
         </div>
 
-        {/* Right: Student Response Area (7 cols) */}
-        <div className="md:col-span-7 card p-5 border border-slate-200 space-y-4">
+        <div className="md:col-span-7 card p-5 border border-[#282D38] space-y-4 bg-[#171A22]">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#737B8C]">
               Your Response
             </label>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-[#737B8C]">
               {answers[currentQ].trim().split(/\s+/).filter(Boolean).length} words
             </span>
           </div>
@@ -335,15 +311,14 @@ export default function MockInterview() {
               setAnswers((prev) => prev.map((a, i) => (i === currentQ ? val : a)));
             }}
             placeholder="Type your response here... Be concise and clear."
-            className="w-full p-4 rounded-xl text-sm border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50 resize-none font-medium text-slate-700"
+            className="w-full p-3.5 rounded-xl text-xs border border-[#282D38] focus:outline-none focus:border-[#8B5CF6] bg-[#14161E] resize-none text-[#F5F7FA] placeholder-[#737B8C]"
           />
 
           <div className="flex justify-end gap-3">
             <button
               id="submit-answer-btn"
               onClick={handleNext}
-              className="px-6 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-              style={{ background: 'var(--accent)' }}
+              className="px-5 py-2.5 rounded-xl font-semibold text-xs text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
             >
               {currentQ < QUESTIONS.length - 1 ? 'Submit Answer & Next →' : 'Submit & Finish Session 🚀'}
             </button>

@@ -8,7 +8,7 @@ import {
   RiMagicLine,
   RiLineChartLine,
 } from 'react-icons/ri';
-import { HiOutlineLightningBolt, HiSparkles } from 'react-icons/hi';
+import { HiOutlineLightningBolt } from 'react-icons/hi';
 
 const PAGE_ICONS = {
   'dashboard': <RiDashboardLine />,
@@ -34,30 +34,29 @@ export default function Sidebar() {
 
   return (
     <aside
-      style={{ width: 240, minWidth: 240, background: 'var(--sidebar-bg)', borderRight: '1px solid #1E202B' }}
+      style={{ width: 240, minWidth: 240, background: 'var(--sidebar-bg)', borderRight: '1px solid #282D38' }}
       className="flex flex-col h-screen sticky top-0 overflow-y-auto z-20"
     >
       {/* ── Logo ── */}
       <div className="flex items-center gap-3 px-6 py-6 mb-2">
         <span
-          className="flex items-center justify-center rounded-xl text-white text-lg shadow-lg"
+          className="flex items-center justify-center rounded-xl text-white text-lg shadow-sm"
           style={{
-            background: 'linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)',
-            width: 36,
-            height: 36,
-            boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
+            background: 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)',
+            width: 34,
+            height: 34,
           }}
         >
           <HiOutlineLightningBolt />
         </span>
-        <span className="text-white font-extrabold text-lg tracking-tight leading-none">
-          Career <span className="text-purple-400">OS</span>
+        <span className="text-[#F5F7FA] font-extrabold text-lg tracking-tight leading-none">
+          Career <span className="text-[#A78BFA]">OS</span>
         </span>
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 px-3 space-y-1">
-        <p className="text-[11px] font-bold uppercase tracking-widest px-3 mb-2 text-slate-500">
+      <nav className="flex-1 px-3 space-y-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2 text-[#737B8C]">
           Navigation
         </p>
         {NAV_PAGES.map(({ id, label }) => (
@@ -68,33 +67,28 @@ export default function Sidebar() {
             onClick={() => setCurrentPage(id)}
           >
             <span className="nav-icon">{PAGE_ICONS[id]}</span>
-            <span>{label}</span>
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </nav>
 
-
-
-      {/* ── Student Card ── */}
+      {/* ── Student Profile Card ── */}
       {student && (
         <div
-          className="mx-3 mb-4 p-3 rounded-2xl flex items-center gap-3"
-          style={{ background: '#1E202B', border: '1px solid #2B2E3C' }}
+          className="mx-3 mb-4 p-3 rounded-xl flex items-center gap-3 border border-[#282D38] bg-[#171A22]"
         >
-          {/* Avatar */}
           <div
-            className="flex items-center justify-center rounded-xl text-white text-sm font-bold flex-shrink-0 shadow-md"
-            style={{ width: 38, height: 38, background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)' }}
+            className="flex items-center justify-center rounded-lg text-white text-xs font-bold flex-shrink-0"
+            style={{ width: 34, height: 34, background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)' }}
           >
             {getInitials(student.name)}
           </div>
-          {/* Info */}
           <div className="min-w-0">
-            <p className="text-white text-sm font-bold truncate leading-tight">
+            <p className="text-[#F5F7FA] text-xs font-bold truncate leading-tight">
               {student.name}
             </p>
             <span
-              className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 truncate max-w-full text-purple-300 bg-purple-950/80 border border-purple-800/60"
+              className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 truncate max-w-full text-[#A78BFA] bg-[rgba(139,92,246,0.12)] border border-[rgba(139,92,246,0.25)]"
             >
               {student.targetRole}
             </span>

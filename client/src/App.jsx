@@ -62,6 +62,7 @@ function PageRenderer() {
     case 'career-twin':    return <CareerTwin />;
     case 'learning-plan':  return <LearningPlan />;
     case 'practice':       return <PracticeHub />;
+    case 'assessment':     return <AssessmentPage />;
     case 'mock-interview': return <MockInterview />;
     case 'simulator':      return <WhatIfSimulator />;
     case 'progress':       return (

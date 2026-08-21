@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../api/api';
 
 const AppContext = createContext(null);
 
@@ -14,26 +14,56 @@ export const NAV_PAGES = [
 ];
 
 export function AppProvider({ children }) {
-  const [student, setStudent]       = useState(null);
-  const [loading, setLoading]       = useState(true);
+  const [student, setStudent] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    axios
-      .get('/api/student')
-      .then((res) => setStudent(res.data))
+    api.getStudent()
+      .then((data) => {
+        if (data && !data.error) {
+          setStudent(data);
+          console.log('Student loaded from DB:', data.name, data.targetRole);
+          if (!data.onboardingDone && currentPage === 'landing') {
+            setCurrentPage('onboarding');
+          }
+        }
+      })
       .catch((err) => console.error('Failed to fetch student:', err.message))
       .finally(() => setLoading(false));
   }, []);
 
+  const updateStudentSkills = async (skills, note) => {
+    if (!student?._id) return;
+    const updated = await api.updateSkills(student._id, skills, note);
+    setStudent(updated);
+    return updated;
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   return (
-    <AppContext.Provider value={{ student, setStudent, loading, currentPage, setCurrentPage }}>
+    <AppContext.Provider
+      value={{
+        student,
+        setStudent,
+        loading,
+        currentPage,
+        setCurrentPage,
+        toast,
+        showToast,
+        updateStudentSkills,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside <AppProvider>');

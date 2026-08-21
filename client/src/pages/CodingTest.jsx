@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
-/* ─── Static data ────────────────────────────────────────────────── */
 const PROBLEM = {
   title:      'Two Sum',
-  difficulty: { label: 'Medium', color: '#F59E0B', bg: '#FEF9C3', border: '#FDE68A' },
+  difficulty: { label: 'Medium', color: '#FBBF24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.25)' },
   tags:       ['Array', 'Hash Map'],
   statement:  `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
 
@@ -23,7 +22,7 @@ You may assume that each input would have exactly one solution, and you may not 
   testCases: [
     { label: '[2,7,11,15], target=9',  expected: '[0,1]', pass: true  },
     { label: '[3,2,4], target=6',      expected: '[1,2]', pass: true  },
-    { label: '[3,3], target=6',        expected: '[0,1]', pass: false }, // simulated fail
+    { label: '[3,3], target=6',        expected: '[0,1]', pass: false },
   ],
 };
 
@@ -49,11 +48,10 @@ const LANG_OPTIONS = [
   { id: 'java',       label: 'Java'       },
 ];
 
-/* ─── AI review data ─────────────────────────────────────────────── */
 const AI_METRICS = [
-  { label: 'Correctness',  value: 80, color: '#6366F1' },
-  { label: 'Efficiency',   value: 65, color: '#F59E0B' },
-  { label: 'Code Quality', value: 82, color: '#22C55E' },
+  { label: 'Correctness',  value: 80, color: '#8B5CF6' },
+  { label: 'Efficiency',   value: 65, color: '#FBBF24' },
+  { label: 'Code Quality', value: 82, color: '#34D399' },
 ];
 
 const AI_FEEDBACK = [
@@ -64,7 +62,6 @@ const AI_FEEDBACK = [
   { type: 'tip',  text: 'Next: Practice HashMap-based problems to improve efficiency score' },
 ];
 
-/* ─── Animated metric bar ────────────────────────────────────────── */
 function MetricBar({ label, value, color, delay = 0 }) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -75,14 +72,14 @@ function MetricBar({ label, value, color, delay = 0 }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-semibold text-slate-700">{label}</span>
-        <span className="text-sm font-black" style={{ color }}>{value}%</span>
+        <span className="text-xs font-semibold text-[#A7ADBA]">{label}</span>
+        <span className="text-xs font-bold" style={{ color }}>{value}%</span>
       </div>
-      <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-[#1B1E27] overflow-hidden">
         <div
           className="h-full rounded-full"
           style={{
-            width:      `${width}%`,
+            width: `${width}%`,
             background: color,
             transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
           }}
@@ -92,13 +89,11 @@ function MetricBar({ label, value, color, delay = 0 }) {
   );
 }
 
-/* ─── Line-numbered editor ───────────────────────────────────────── */
-function CodeEditor({ value, onChange, lang }) {
+function CodeEditor({ value, onChange }) {
   const textareaRef  = useRef(null);
   const gutterRef    = useRef(null);
   const lines        = value.split('\n');
 
-  // Sync scroll between gutter and textarea
   const syncScroll = () => {
     if (gutterRef.current && textareaRef.current) {
       gutterRef.current.scrollTop = textareaRef.current.scrollTop;
@@ -118,17 +113,16 @@ function CodeEditor({ value, onChange, lang }) {
 
   return (
     <div
-      className="flex rounded-xl overflow-hidden flex-1 min-h-0"
-      style={{ background: '#0D1117', border: '1px solid #21262D', fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
+      className="flex rounded-b-xl overflow-hidden flex-1 min-h-0"
+      style={{ background: '#0B0D12', border: '1px solid #282D38', fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
     >
-      {/* Gutter */}
       <div
         ref={gutterRef}
         className="select-none overflow-hidden flex-shrink-0"
         style={{
           width: 44,
-          background: '#161B22',
-          borderRight: '1px solid #21262D',
+          background: '#11131A',
+          borderRight: '1px solid #282D38',
           overflowY: 'hidden',
           paddingTop: 12,
           paddingBottom: 12,
@@ -141,10 +135,9 @@ function CodeEditor({ value, onChange, lang }) {
               height: 21,
               lineHeight: '21px',
               fontSize: 12,
-              color: '#484F58',
+              color: '#737B8C',
               textAlign: 'right',
               paddingRight: 8,
-              paddingLeft: 4,
             }}
           >
             {i + 1}
@@ -152,7 +145,6 @@ function CodeEditor({ value, onChange, lang }) {
         ))}
       </div>
 
-      {/* Textarea */}
       <textarea
         ref={textareaRef}
         value={value}
@@ -162,12 +154,12 @@ function CodeEditor({ value, onChange, lang }) {
         spellCheck={false}
         className="flex-1 resize-none outline-none p-3 text-sm leading-[21px]"
         style={{
-          background:  '#0D1117',
-          color:       '#E6EDF3',
+          background:  '#0B0D12',
+          color:       '#F5F7FA',
           fontFamily:  "'JetBrains Mono', 'Fira Code', monospace",
           fontSize:    13,
           lineHeight:  '21px',
-          caretColor:  '#58A6FF',
+          caretColor:  '#8B5CF6',
           tabSize:     2,
         }}
       />
@@ -175,13 +167,12 @@ function CodeEditor({ value, onChange, lang }) {
   );
 }
 
-/* ─── Test Results ───────────────────────────────────────────────── */
 function TestResults({ results, running }) {
   if (running) {
     return (
-      <div className="flex items-center gap-3 py-4 px-4 rounded-xl bg-slate-50 border border-slate-200">
-        <span className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-        <span className="text-sm text-slate-600 font-medium">Running test cases…</span>
+      <div className="flex items-center gap-3 py-4 px-4 rounded-xl bg-[#1B1E27] border border-[#282D38]">
+        <span className="w-4 h-4 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin flex-shrink-0" />
+        <span className="text-xs text-[#A7ADBA] font-medium">Running test cases...</span>
       </div>
     );
   }
@@ -189,42 +180,38 @@ function TestResults({ results, running }) {
   const passed = results.filter((r) => r.pass).length;
   return (
     <div
-      className="rounded-xl overflow-hidden border"
-      style={{ borderColor: passed === results.length ? '#86EFAC' : '#FCA5A5' }}
+      className="rounded-xl overflow-hidden border border-[#282D38] bg-[#171A22]"
     >
-      {/* Header */}
       <div
-        className="px-4 py-2.5 flex items-center justify-between"
+        className="px-4 py-2.5 flex items-center justify-between border-b border-[#282D38]"
         style={{
-          background: passed === results.length ? '#F0FDF4' : '#FEF2F2',
-          borderBottom: `1px solid ${passed === results.length ? '#86EFAC' : '#FCA5A5'}`,
+          background: passed === results.length ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)',
         }}
       >
-        <span className="text-sm font-bold" style={{ color: passed === results.length ? '#15803D' : '#B91C1C' }}>
+        <span className="text-xs font-bold" style={{ color: passed === results.length ? '#34D399' : '#F87171' }}>
           {passed === results.length ? '✅' : '⚠️'} Test Results — {passed}/{results.length} Passed
         </span>
-        <span className="text-xs font-medium text-slate-500">~1.5ms runtime</span>
+        <span className="text-[11px] text-[#737B8C]">~1.5ms runtime</span>
       </div>
-      {/* Cases */}
       {results.map((r, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 px-4 py-2.5 border-b last:border-0"
-          style={{ borderColor: '#F1F5F9', background: '#fff' }}
+          className="flex items-center gap-3 px-4 py-2.5 border-b border-[#282D38] last:border-0 bg-[#171A22]"
         >
-          <span className="text-base flex-shrink-0">{r.pass ? '✅' : '❌'}</span>
+          <span className="text-xs flex-shrink-0">{r.pass ? '✅' : '❌'}</span>
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-mono text-slate-600">{r.label}</span>
+            <span className="text-xs font-mono text-[#A7ADBA]">{r.label}</span>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs text-slate-400">Expected:</span>
-            <code className="text-xs font-mono font-bold text-slate-700">{r.expected}</code>
+            <span className="text-[11px] text-[#737B8C]">Expected:</span>
+            <code className="text-xs font-mono font-bold text-[#F5F7FA]">{r.expected}</code>
           </div>
           <span
-            className="text-xs font-bold px-2 py-0.5 rounded-full"
+            className="text-[10px] font-semibold px-2 py-0.5 rounded border"
             style={{
-              background: r.pass ? '#DCFCE7' : '#FEE2E2',
-              color:      r.pass ? '#15803D' : '#DC2626',
+              background: r.pass ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+              color:      r.pass ? '#34D399' : '#F87171',
+              borderColor: r.pass ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)',
             }}
           >
             {r.pass ? 'PASS' : 'FAIL'}
@@ -235,70 +222,50 @@ function TestResults({ results, running }) {
   );
 }
 
-/* ─── AI Review Panel ────────────────────────────────────────────── */
 function AiReview({ onNavigate }) {
   const ICONS = { good: '✅', warn: '⚠️', tip: '💡' };
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        border: '1px solid #C7D2FE',
-        animation: 'reviewSlide 0.45s cubic-bezier(.34,1.56,.64,1) both',
-      }}
-    >
-      <style>{`
-        @keyframes reviewSlide {
-          from { opacity:0; transform:translateY(20px) scale(0.97); }
-          to   { opacity:1; transform:translateY(0)    scale(1);    }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div
-        className="px-5 py-4 flex items-center gap-3"
-        style={{ background: 'linear-gradient(135deg,#6366F1,#818CF8)' }}
-      >
-        <span className="text-2xl">🤖</span>
+    <div className="rounded-xl overflow-hidden border border-[rgba(139,92,246,0.3)] bg-[#171A22]">
+      <div className="px-5 py-3.5 flex items-center gap-3 bg-[#1B1E27] border-b border-[#282D38]">
+        <span className="text-lg text-[#A78BFA] bg-[rgba(139,92,246,0.12)] p-1.5 rounded-lg">🤖</span>
         <div>
-          <p className="text-white font-black text-base">AI Code Review</p>
-          <p className="text-indigo-200 text-xs">Powered by Career OS Intelligence</p>
+          <p className="text-[#F5F7FA] font-bold text-sm">AI Code Review</p>
+          <p className="text-[#737B8C] text-[11px]">Powered by Career OS Intelligence</p>
         </div>
       </div>
 
-      <div className="p-5 bg-white space-y-5">
-        {/* Metric bars */}
-        <div className="space-y-4">
+      <div className="p-5 space-y-4">
+        <div className="space-y-3">
           {AI_METRICS.map((m, i) => (
             <MetricBar key={m.label} {...m} delay={i * 180} />
           ))}
         </div>
 
-        <div className="h-px bg-slate-100" />
+        <div className="h-px bg-[#282D38]" />
 
-        {/* Feedback list */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {AI_FEEDBACK.map((f, i) => (
             <div
               key={i}
-              className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-sm"
+              className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs"
               style={{
                 background:
-                  f.type === 'good' ? '#F0FDF4' :
-                  f.type === 'warn' ? '#FFFBEB' : '#EEF2FF',
+                  f.type === 'good' ? 'rgba(52,211,153,0.08)' :
+                  f.type === 'warn' ? 'rgba(251,191,36,0.08)' : 'rgba(139,92,246,0.08)',
                 border: `1px solid ${
-                  f.type === 'good' ? '#BBF7D0' :
-                  f.type === 'warn' ? '#FDE68A' : '#C7D2FE'
+                  f.type === 'good' ? 'rgba(52,211,153,0.2)' :
+                  f.type === 'warn' ? 'rgba(251,191,36,0.2)' : 'rgba(139,92,246,0.2)'
                 }`,
               }}
             >
-              <span className="flex-shrink-0 text-base leading-snug">{ICONS[f.type]}</span>
+              <span className="flex-shrink-0 text-sm">{ICONS[f.type]}</span>
               <span
-                className="leading-snug font-medium"
+                className="font-medium"
                 style={{
                   color:
-                    f.type === 'good' ? '#15803D' :
-                    f.type === 'warn' ? '#92400E' : '#4338CA',
+                    f.type === 'good' ? '#34D399' :
+                    f.type === 'warn' ? '#FBBF24' : '#A78BFA',
                 }}
               >
                 {f.text}
@@ -307,15 +274,10 @@ function AiReview({ onNavigate }) {
           ))}
         </div>
 
-        {/* CTA */}
         <button
           id="practice-hashmap-btn"
           onClick={() => onNavigate('learning-plan')}
-          className="w-full py-3 rounded-xl font-bold text-white transition-all duration-200 flex items-center justify-center gap-2 text-sm"
-          style={{
-            background: 'var(--accent)',
-            boxShadow:  '0 4px 14px rgba(99,102,241,0.3)',
-          }}
+          className="w-full py-2.5 rounded-xl font-semibold text-xs text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
         >
           Practice HashMap Problems →
         </button>
@@ -324,11 +286,10 @@ function AiReview({ onNavigate }) {
   );
 }
 
-/* ─── Difficulty badge ───────────────────────────────────────────── */
 function DiffBadge({ d }) {
   return (
     <span
-      className="text-xs font-bold px-2.5 py-1 rounded-full border"
+      className="text-xs font-semibold px-2.5 py-0.5 rounded-md border"
       style={{ background: d.bg, color: d.color, borderColor: d.border }}
     >
       🟡 {d.label}
@@ -336,7 +297,6 @@ function DiffBadge({ d }) {
   );
 }
 
-/* ─── Main page ──────────────────────────────────────────────────── */
 export default function CodingTest() {
   const { setCurrentPage } = useApp();
 
@@ -348,7 +308,6 @@ export default function CodingTest() {
   const [submitting, setSubmitting] = useState(false);
   const resultsRef = useRef(null);
 
-  // Switch language resets code to starter
   const handleLangChange = (l) => {
     setLang(l);
     setCode(STARTER[l]);
@@ -356,7 +315,6 @@ export default function CodingTest() {
     setSubmitted(false);
   };
 
-  // Simulate run
   const handleRun = () => {
     setRunning(true);
     setResults(null);
@@ -368,7 +326,6 @@ export default function CodingTest() {
     }, 1500);
   };
 
-  // Simulate submit → show AI review
   const handleSubmit = () => {
     setSubmitting(true);
     setTimeout(() => {
@@ -381,124 +338,75 @@ export default function CodingTest() {
   const passCount = PROBLEM.testCases.filter((t) => t.pass).length;
 
   return (
-    <div className="flex flex-col h-full gap-0" style={{ minHeight: 'calc(100vh - 128px)' }}>
-      <style>{`
-        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        .fade-up { animation: fadeUp 0.35s ease both; }
-      `}</style>
-
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between mb-4 fade-up">
+    <div className="flex flex-col h-full gap-0 max-w-6xl mx-auto" style={{ minHeight: 'calc(100vh - 128px)' }}>
+      {/* Header bar */}
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-black text-slate-800">{PROBLEM.title}</h1>
+          <h1 className="text-xl font-bold text-[#F5F7FA]">{PROBLEM.title}</h1>
           <DiffBadge d={PROBLEM.difficulty} />
           {PROBLEM.tags.map((t) => (
-            <span key={t} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{t}</span>
+            <span key={t} className="text-xs font-medium px-2 py-0.5 rounded bg-[#171A22] text-[#A7ADBA] border border-[#282D38]">{t}</span>
           ))}
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+        <div className="flex items-center gap-2 text-xs text-[#737B8C]">
+          <span className="w-2 h-2 rounded-full bg-[#34D399] inline-block" />
           Auto-save enabled
         </div>
       </div>
 
-      {/* ── Split layout ── */}
-      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
-
-        {/* ── LEFT: Problem panel ── */}
-        <div
-          className="card p-5 overflow-y-auto fade-up flex flex-col gap-5"
-          style={{ animationDelay: '40ms', maxHeight: 'calc(100vh - 180px)' }}
-        >
-          {/* Statement */}
+      {/* Split layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+        {/* LEFT: Problem panel */}
+        <div className="card p-5 overflow-y-auto flex flex-col gap-5 bg-[#171A22] border border-[#282D38]">
           <div>
-            <h3 className="text-sm font-black text-slate-700 uppercase tracking-wide mb-2">Problem</h3>
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{PROBLEM.statement}</p>
+            <h3 className="text-xs font-semibold text-[#737B8C] uppercase tracking-wider mb-2">Problem</h3>
+            <p className="text-xs text-[#F5F7FA] leading-relaxed whitespace-pre-line">{PROBLEM.statement}</p>
           </div>
 
-          {/* Examples */}
           <div>
-            <h3 className="text-sm font-black text-slate-700 uppercase tracking-wide mb-3">Examples</h3>
+            <h3 className="text-xs font-semibold text-[#737B8C] uppercase tracking-wider mb-3">Examples</h3>
             <div className="space-y-3">
               {PROBLEM.examples.map((ex, i) => (
                 <div
                   key={i}
-                  className="rounded-xl p-3.5 text-xs font-mono"
-                  style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                  className="rounded-xl p-3.5 text-xs font-mono bg-[#1B1E27] border border-[#282D38]"
                 >
-                  <p className="text-slate-500 mb-0.5">Input:</p>
-                  <p className="text-slate-800 font-semibold mb-2">{ex.input}</p>
-                  <p className="text-slate-500 mb-0.5">Output:</p>
-                  <p className="text-emerald-700 font-semibold mb-2">{ex.output}</p>
-                  <p className="text-slate-400 italic">// {ex.explain}</p>
+                  <p className="text-[#737B8C] mb-0.5">Input:</p>
+                  <p className="text-[#F5F7FA] font-medium mb-2">{ex.input}</p>
+                  <p className="text-[#737B8C] mb-0.5">Output:</p>
+                  <p className="text-[#34D399] font-medium mb-2">{ex.output}</p>
+                  <p className="text-[#737B8C] italic">// {ex.explain}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Constraints */}
           <div>
-            <h3 className="text-sm font-black text-slate-700 uppercase tracking-wide mb-2">Constraints</h3>
+            <h3 className="text-xs font-semibold text-[#737B8C] uppercase tracking-wider mb-2">Constraints</h3>
             <ul className="space-y-1">
               {PROBLEM.constraints.map((c, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                  <span className="text-indigo-400 mt-0.5 flex-shrink-0">•</span>
+                <li key={i} className="flex items-start gap-2 text-xs text-[#A7ADBA]">
+                  <span className="text-[#8B5CF6] mt-0.5 flex-shrink-0">•</span>
                   <code className="font-mono">{c}</code>
                 </li>
               ))}
             </ul>
           </div>
-
-          {/* Test cases preview */}
-          <div>
-            <h3 className="text-sm font-black text-slate-700 uppercase tracking-wide mb-2">Test Cases</h3>
-            <div className="space-y-1.5">
-              {PROBLEM.testCases.map((tc, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-400">✓</span>
-                  <code className="font-mono text-slate-600">{tc.label}</code>
-                  <span className="text-slate-400">→</span>
-                  <code className="font-mono font-bold text-slate-700">{tc.expected}</code>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
-        {/* ── RIGHT: Editor panel ── */}
-        <div
-          className="flex flex-col gap-3 fade-up"
-          style={{ animationDelay: '80ms', maxHeight: 'calc(100vh - 180px)' }}
-        >
-          {/* Editor card */}
-          <div
-            className="flex flex-col rounded-2xl overflow-hidden flex-1 min-h-0"
-            style={{ background: '#0D1117', border: '1px solid #21262D', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}
-          >
-            {/* Editor toolbar */}
-            <div
-              className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
-              style={{ background: '#161B22', borderBottom: '1px solid #21262D' }}
-            >
+        {/* RIGHT: Editor panel */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col rounded-xl overflow-hidden flex-1 min-h-0 border border-[#282D38] bg-[#0B0D12]">
+            <div className="flex items-center justify-between px-4 py-2 bg-[#11131A] border-b border-[#282D38]">
               <div className="flex items-center gap-2">
-                {/* Traffic lights */}
-                {['#FF5F57','#FEBC2E','#28C840'].map((c) => (
-                  <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />
-                ))}
-                <span className="text-slate-500 text-xs ml-2 font-mono">solution.{lang === 'python' ? 'py' : lang === 'java' ? 'java' : 'js'}</span>
+                <span className="text-[#737B8C] text-xs font-mono">solution.{lang === 'python' ? 'py' : lang === 'java' ? 'java' : 'js'}</span>
               </div>
 
-              {/* Language selector */}
               <select
                 id="lang-selector"
                 value={lang}
                 onChange={(e) => handleLangChange(e.target.value)}
-                className="text-xs font-semibold rounded-lg px-2 py-1.5 outline-none cursor-pointer"
-                style={{
-                  background: '#21262D',
-                  color:      '#E6EDF3',
-                  border:     '1px solid #30363D',
-                }}
+                className="text-xs font-medium rounded-md px-2 py-1 outline-none bg-[#171A22] text-[#F5F7FA] border border-[#282D38]"
               >
                 {LANG_OPTIONS.map((l) => (
                   <option key={l.id} value={l.id}>{l.label}</option>
@@ -506,8 +414,7 @@ export default function CodingTest() {
               </select>
             </div>
 
-            {/* Code area */}
-            <CodeEditor value={code} onChange={setCode} lang={lang} />
+            <CodeEditor value={code} onChange={setCode} />
           </div>
 
           {/* Action buttons */}
@@ -516,15 +423,10 @@ export default function CodingTest() {
               id="run-code-btn"
               onClick={handleRun}
               disabled={running}
-              className="flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 border"
-              style={{
-                background: '#161B22',
-                color:      running ? '#484F58' : '#E6EDF3',
-                borderColor: '#30363D',
-              }}
+              className="flex-1 py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors bg-[#1B1E27] text-[#F5F7FA] border border-[#282D38] hover:bg-[#20242E]"
             >
               {running
-                ? <><span className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" /> Running…</>
+                ? <><span className="w-3 h-3 border-2 border-[#A7ADBA] border-t-transparent rounded-full animate-spin" /> Running...</>
                 : '▶ Run Code'
               }
             </button>
@@ -533,50 +435,42 @@ export default function CodingTest() {
               id="submit-code-btn"
               onClick={handleSubmit}
               disabled={submitting || !results}
-              className="flex-[2] py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-white transition-all duration-200"
-              style={{
-                background:  (!results || submitting) ? '#A5B4FC' : 'var(--accent)',
-                boxShadow:   (!results || submitting) ? 'none' : '0 4px 14px rgba(99,102,241,0.3)',
-                cursor:      (!results || submitting) ? 'not-allowed' : 'pointer',
-              }}
+              className="flex-[2] py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting
-                ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analysing…</>
+                ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analysing...</>
                 : '🚀 Submit & Get AI Review'
               }
             </button>
           </div>
 
-          {/* Results + Review — scrollable area */}
+          {/* Results Area */}
           <div
             ref={resultsRef}
             className="overflow-y-auto space-y-4 flex-shrink-0"
-            style={{ maxHeight: 340 }}
+            style={{ maxHeight: 300 }}
           >
-            {/* Test results */}
             {(running || results) && (
               <TestResults results={results ?? []} running={running} />
             )}
 
-            {/* Score summary (after run) */}
             {results && !running && (
               <div
-                className="px-4 py-3 rounded-xl flex items-center justify-between"
+                className="px-4 py-2.5 rounded-xl flex items-center justify-between border"
                 style={{
-                  background: passCount === results.length ? '#F0FDF4' : '#FFFBEB',
-                  border:     `1px solid ${passCount === results.length ? '#86EFAC' : '#FDE68A'}`,
+                  background: passCount === results.length ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
+                  borderColor: passCount === results.length ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)',
                 }}
               >
-                <span className="text-sm font-semibold" style={{ color: passCount === results.length ? '#15803D' : '#92400E' }}>
+                <span className="text-xs font-semibold" style={{ color: passCount === results.length ? '#34D399' : '#FBBF24' }}>
                   {passCount === results.length
                     ? '🎉 All tests passed! Ready to submit.'
                     : `⚠️ ${passCount}/${results.length} tests passed. Review your solution.`}
                 </span>
-                <span className="text-xs text-slate-400">O(n²) complexity detected</span>
+                <span className="text-[11px] text-[#737B8C]">O(n²) complexity</span>
               </div>
             )}
 
-            {/* AI Review */}
             {submitted && <AiReview onNavigate={setCurrentPage} />}
           </div>
         </div>

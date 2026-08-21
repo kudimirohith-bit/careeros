@@ -1,8 +1,45 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { api } from '../api/api';
 import { useApp } from '../context/AppContext';
 
 /* ─── Data ─────────────────────────────────────────────────────────── */
+
+const ROLE_SKILLS = {
+  'Backend Developer': [
+    { name: 'DSA', current: 0, target: 75 },
+    { name: 'Backend', current: 0, target: 80 },
+    { name: 'DBMS', current: 0, target: 75 },
+    { name: 'System Design', current: 0, target: 65 },
+    { name: 'Testing', current: 0, target: 70 },
+    { name: 'Communication', current: 0, target: 70 },
+    { name: 'Interview', current: 0, target: 65 },
+    { name: 'Aptitude', current: 0, target: 70 },
+  ],
+  'Data Analyst': [
+    { name: 'Python', current: 0, target: 75 },
+    { name: 'SQL', current: 0, target: 80 },
+    { name: 'Statistics', current: 0, target: 70 },
+    { name: 'Data Viz', current: 0, target: 70 },
+    { name: 'Communication', current: 0, target: 75 },
+    { name: 'Aptitude', current: 0, target: 70 },
+  ],
+  'AI Engineer': [
+    { name: 'Python', current: 0, target: 80 },
+    { name: 'ML', current: 0, target: 75 },
+    { name: 'DSA', current: 0, target: 70 },
+    { name: 'Mathematics', current: 0, target: 75 },
+    { name: 'Communication', current: 0, target: 70 },
+    { name: 'Interview', current: 0, target: 65 },
+  ],
+  'Frontend Developer': [
+    { name: 'JavaScript', current: 0, target: 80 },
+    { name: 'React', current: 0, target: 75 },
+    { name: 'DSA', current: 0, target: 65 },
+    { name: 'UI/UX', current: 0, target: 70 },
+    { name: 'Communication', current: 0, target: 70 },
+    { name: 'Interview', current: 0, target: 65 },
+  ],
+};
 
 const ROLES = [
   {
@@ -11,18 +48,6 @@ const ROLES = [
     label: 'Backend Developer',
     desc: 'Build APIs, services, and server-side systems that power applications at scale.',
     tags: ['Node.js', 'Databases', 'System Design'],
-    skills: [
-      { name: 'Programming',    current: 0, target: 90 },
-      { name: 'DSA',            current: 0, target: 85 },
-      { name: 'Node.js',        current: 0, target: 80 },
-      { name: 'APIs',           current: 0, target: 80 },
-      { name: 'Databases',      current: 0, target: 75 },
-      { name: 'Git',            current: 0, target: 70 },
-      { name: 'Testing',        current: 0, target: 70 },
-      { name: 'System Design',  current: 0, target: 80 },
-      { name: 'Communication',  current: 0, target: 75 },
-      { name: 'Interview Prep', current: 0, target: 85 },
-    ],
   },
   {
     id: 'data-analyst',
@@ -30,16 +55,6 @@ const ROLES = [
     label: 'Data Analyst',
     desc: 'Turn raw data into insights using SQL, Python, and powerful visualisation tools.',
     tags: ['Python', 'SQL', 'Data Viz'],
-    skills: [
-      { name: 'Python',           current: 0, target: 80 },
-      { name: 'SQL',              current: 0, target: 85 },
-      { name: 'Statistics',       current: 0, target: 75 },
-      { name: 'Data Viz',         current: 0, target: 70 },
-      { name: 'Excel',            current: 0, target: 65 },
-      { name: 'Communication',    current: 0, target: 75 },
-      { name: 'ML Basics',        current: 0, target: 60 },
-      { name: 'Problem Solving',  current: 0, target: 80 },
-    ],
   },
   {
     id: 'ai-engineer',
@@ -47,16 +62,6 @@ const ROLES = [
     label: 'AI Engineer',
     desc: 'Design and deploy machine learning models and intelligent systems end-to-end.',
     tags: ['Python', 'ML', 'Deep Learning'],
-    skills: [
-      { name: 'Python',       current: 0, target: 90 },
-      { name: 'ML',           current: 0, target: 85 },
-      { name: 'Deep Learning',current: 0, target: 80 },
-      { name: 'DSA',          current: 0, target: 75 },
-      { name: 'Mathematics',  current: 0, target: 80 },
-      { name: 'APIs',         current: 0, target: 70 },
-      { name: 'NLP',          current: 0, target: 75 },
-      { name: 'Communication',current: 0, target: 70 },
-    ],
   },
   {
     id: 'frontend',
@@ -64,24 +69,14 @@ const ROLES = [
     label: 'Frontend Developer',
     desc: 'Craft pixel-perfect, performant UIs using modern JavaScript frameworks and design systems.',
     tags: ['React', 'JavaScript', 'UI/UX'],
-    skills: [
-      { name: 'HTML/CSS',     current: 0, target: 85 },
-      { name: 'JavaScript',   current: 0, target: 90 },
-      { name: 'React',        current: 0, target: 85 },
-      { name: 'DSA',          current: 0, target: 70 },
-      { name: 'UI/UX',        current: 0, target: 75 },
-      { name: 'APIs',         current: 0, target: 70 },
-      { name: 'Git',          current: 0, target: 65 },
-      { name: 'Communication',current: 0, target: 70 },
-    ],
   },
 ];
 
 const EVIDENCE_SOURCES = [
-  { id: 'github',    emoji: '🐙', label: 'GitHub',            desc: 'Link your repos & contributions' },
-  { id: 'platform',  emoji: '💻', label: 'Coding Platform',   desc: 'LeetCode, HackerRank, etc.' },
-  { id: 'resume',    emoji: '📄', label: 'Resume',            desc: 'Upload your latest resume' },
-  { id: 'certs',     emoji: '🎓', label: 'Certificates',      desc: 'Add your certifications' },
+  { id: 'github', emoji: '🐙', label: 'GitHub', desc: 'Link your repos & contributions' },
+  { id: 'codingPlatform', emoji: '💻', label: 'Coding Platform', desc: 'LeetCode, HackerRank, etc.' },
+  { id: 'resume', emoji: '📄', label: 'Resume', desc: 'Upload your latest resume' },
+  { id: 'certificates', emoji: '🎓', label: 'Certificates', desc: 'Add your certifications' },
 ];
 
 /* ─── Step indicator ─────────────────────────────────────────────── */
@@ -94,9 +89,9 @@ function StepDots({ step }) {
           <div
             className="rounded-full transition-all duration-300"
             style={{
-              width:  step >= s ? 28 : 10,
+              width: step >= s ? 28 : 10,
               height: 10,
-              background: step >= s ? 'var(--accent)' : '#CBD5E1',
+              background: step >= s ? '#8B5CF6' : '#282D38',
             }}
           />
         </div>
@@ -110,11 +105,11 @@ function StepDots({ step }) {
 function StepGoal({ selected, onSelect, onNext }) {
   return (
     <div className="w-full max-w-2xl mx-auto animate-fadein">
-      <p className="text-indigo-500 text-sm font-semibold mb-1 tracking-wide uppercase">Step 1 of 3</p>
-      <h2 className="text-3xl font-bold text-slate-800 mb-2">What's your career goal?</h2>
-      <p className="text-slate-500 mb-8">We'll personalise your learning path around this role.</p>
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 1 of 3</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">What's your career goal?</h2>
+      <p className="text-[#A7ADBA] text-sm mb-8">We'll personalise your learning path around this role.</p>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {ROLES.map((role) => {
           const isSelected = selected?.id === role.id;
           return (
@@ -122,24 +117,24 @@ function StepGoal({ selected, onSelect, onNext }) {
               key={role.id}
               id={`goal-card-${role.id}`}
               onClick={() => onSelect(role)}
-              className="text-left p-5 rounded-2xl border-2 transition-all duration-200 hover:shadow-md"
+              className="text-left p-5 rounded-2xl border transition-all duration-200"
               style={{
-                background:   isSelected ? '#EEF2FF' : '#fff',
-                borderColor:  isSelected ? 'var(--accent)' : '#E2E8F0',
-                boxShadow:    isSelected ? '0 0 0 3px rgba(99,102,241,0.15)' : undefined,
+                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : '#171A22',
+                borderColor: isSelected ? '#8B5CF6' : '#282D38',
+                boxShadow: isSelected ? '0 0 15px rgba(139, 92, 246, 0.15)' : 'none',
               }}
             >
               <div className="text-3xl mb-3">{role.emoji}</div>
-              <div className="font-bold text-slate-800 text-base mb-1">{role.label}</div>
-              <p className="text-slate-500 text-xs leading-relaxed mb-3">{role.desc}</p>
+              <div className="font-bold text-[#F5F7FA] text-base mb-1">{role.label}</div>
+              <p className="text-[#A7ADBA] text-xs leading-relaxed mb-3">{role.desc}</p>
               <div className="flex flex-wrap gap-1.5">
                 {role.tags.map((t) => (
                   <span
                     key={t}
-                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    className="text-xs px-2 py-0.5 rounded-md font-medium"
                     style={{
-                      background: isSelected ? 'rgba(99,102,241,0.15)' : '#F1F5F9',
-                      color:      isSelected ? '#4F46E5' : '#64748B',
+                      background: isSelected ? 'rgba(139, 92, 246, 0.2)' : '#1B1E27',
+                      color: isSelected ? '#A78BFA' : '#737B8C',
                     }}
                   >
                     {t}
@@ -157,9 +152,8 @@ function StepGoal({ selected, onSelect, onNext }) {
         onClick={onNext}
         className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-200"
         style={{
-          background: selected ? 'var(--accent)' : '#CBD5E1',
+          background: selected ? '#8B5CF6' : '#282D38',
           cursor: selected ? 'pointer' : 'not-allowed',
-          boxShadow: selected ? '0 4px 14px rgba(99,102,241,0.35)' : 'none',
         }}
       >
         Continue →
@@ -173,60 +167,55 @@ function StepGoal({ selected, onSelect, onNext }) {
 function SkillPill({ name, index }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border"
       style={{
-        background: '#EEF2FF',
-        borderColor: '#C7D2FE',
-        color: '#4338CA',
+        background: 'rgba(139, 92, 246, 0.12)',
+        borderColor: 'rgba(139, 92, 246, 0.25)',
+        color: '#A78BFA',
         animation: `skillPop 0.4s ease both`,
         animationDelay: `${index * 60}ms`,
       }}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
+      <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] inline-block" />
       {name}
     </span>
   );
 }
 
 function StepSkills({ role, onNext, onBack }) {
+  const roleSkills = ROLE_SKILLS[role.label] || [];
+
   return (
     <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-indigo-500 text-sm font-semibold mb-1 tracking-wide uppercase">Step 2 of 3</p>
-      <h2 className="text-3xl font-bold text-slate-800 mb-2">Skills we'll track</h2>
-      <p className="text-slate-500 mb-8">
-        For <span className="font-semibold text-indigo-600">{role.label}</span>, we'll assess your current level across these areas:
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 2 of 3</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Skills we'll track</h2>
+      <p className="text-[#A7ADBA] text-sm mb-8">
+        For <span className="font-semibold text-[#A78BFA]">{role.label}</span>, we'll assess your current level across these areas:
       </p>
 
-      <div
-        className="p-6 rounded-2xl mb-8"
-        style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}
-      >
+      <div className="p-6 rounded-2xl mb-8 bg-[#171A22] border border-[#282D38]">
         <div className="flex flex-wrap gap-2.5">
-          {role.skills.map((s, i) => (
+          {roleSkills.map((s, i) => (
             <SkillPill key={s.name} name={s.name} index={i} />
           ))}
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 text-center mb-6">
+      <p className="text-xs text-[#737B8C] text-center mb-6">
         🧠 We'll assess your current level for each of these via short tests &amp; your portfolio.
       </p>
 
       <div className="flex gap-3">
         <button
           onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22] hover:bg-[#1B1E27] transition-colors"
         >
           ← Back
         </button>
         <button
           id="skills-next-btn"
           onClick={onNext}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white transition-all duration-200"
-          style={{
-            background: 'var(--accent)',
-            boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-          }}
+          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200"
         >
           Looks good →
         </button>
@@ -238,15 +227,20 @@ function StepSkills({ role, onNext, onBack }) {
 /* ─── Step 3 — Evidence Hub ──────────────────────────────────────── */
 
 function StepEvidence({ onFinish, onBack, saving }) {
-  const [connected, setConnected] = useState({});
+  const [connected, setConnected] = useState({
+    github: false,
+    codingPlatform: false,
+    resume: false,
+    certificates: false,
+  });
 
   const toggle = (id) => setConnected((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-indigo-500 text-sm font-semibold mb-1 tracking-wide uppercase">Step 3 of 3</p>
-      <h2 className="text-3xl font-bold text-slate-800 mb-2">Evidence Hub</h2>
-      <p className="text-slate-500 mb-8">Connect your existing work so we can auto-assess your skills. (All optional)</p>
+      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 3 of 3</p>
+      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Evidence Hub</h2>
+      <p className="text-[#A7ADBA] text-sm mb-8">Connect your existing work so we can auto-assess your skills. (All optional)</p>
 
       <div className="space-y-3 mb-6">
         {EVIDENCE_SOURCES.map(({ id, emoji, label, desc }) => {
@@ -254,17 +248,16 @@ function StepEvidence({ onFinish, onBack, saving }) {
           return (
             <div
               key={id}
-              className="flex items-center justify-between p-4 rounded-xl border transition-all duration-200"
+              className="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 bg-[#171A22]"
               style={{
-                background:   done ? '#F0FDF4' : '#fff',
-                borderColor:  done ? '#86EFAC' : '#E2E8F0',
+                borderColor: done ? 'rgba(52, 211, 153, 0.4)' : '#282D38',
               }}
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{emoji}</span>
                 <div>
-                  <p className="font-semibold text-slate-800 text-sm">{label}</p>
-                  <p className="text-xs text-slate-400">{desc}</p>
+                  <p className="font-semibold text-[#F5F7FA] text-sm">{label}</p>
+                  <p className="text-xs text-[#737B8C]">{desc}</p>
                 </div>
               </div>
               <button
@@ -272,9 +265,9 @@ function StepEvidence({ onFinish, onBack, saving }) {
                 onClick={() => toggle(id)}
                 className="text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-200"
                 style={{
-                  background: done ? '#DCFCE7' : 'var(--accent-light)',
-                  color:      done ? '#15803D' : 'var(--accent)',
-                  border:     `1px solid ${done ? '#86EFAC' : '#C7D2FE'}`,
+                  background: done ? 'rgba(52, 211, 153, 0.15)' : 'rgba(139, 92, 246, 0.12)',
+                  color: done ? '#34D399' : '#A78BFA',
+                  border: `1px solid ${done ? 'rgba(52, 211, 153, 0.3)' : 'rgba(139, 92, 246, 0.25)'}`,
                 }}
               >
                 {done ? '✓ Connected' : 'Connect'}
@@ -287,19 +280,18 @@ function StepEvidence({ onFinish, onBack, saving }) {
       <div className="flex gap-3 mb-4">
         <button
           onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22] hover:bg-[#1B1E27] transition-colors"
         >
           ← Back
         </button>
         <button
           id="finish-onboarding-btn"
-          onClick={onFinish}
+          onClick={() => onFinish(connected)}
           disabled={saving}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2"
+          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center justify-center gap-2"
           style={{
-            background: saving ? '#A5B4FC' : 'var(--accent)',
-            boxShadow: saving ? 'none' : '0 4px 14px rgba(99,102,241,0.35)',
             cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.7 : 1,
           }}
         >
           {saving ? (
@@ -316,8 +308,8 @@ function StepEvidence({ onFinish, onBack, saving }) {
       <p className="text-center">
         <button
           id="skip-evidence-btn"
-          onClick={onFinish}
-          className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors"
+          onClick={() => onFinish(connected)}
+          className="text-xs text-[#737B8C] hover:text-[#F5F7FA] underline underline-offset-2 transition-colors"
         >
           Skip for now
         </button>
@@ -331,33 +323,34 @@ function StepEvidence({ onFinish, onBack, saving }) {
 export default function Onboarding() {
   const { setStudent, setCurrentPage } = useApp();
 
-  const [step,     setStep]     = useState(1);
-  const [role,     setRole]     = useState(null);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState('');
+  const [step, setStep] = useState(1);
+  const [role, setRole] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleFinish = async () => {
+  const handleFinish = async (connectedEvidence = {}) => {
     setSaving(true);
     setError('');
     try {
-      const payload = {
+      const selectedRole = role?.label || 'Backend Developer';
+      const skills = ROLE_SKILLS[selectedRole] || ROLE_SKILLS['Backend Developer'];
+      const student = await api.createStudent({
         name: 'Alex Kumar',
-        targetRole: role.label,
-        skills: role.skills,
-        onboardingDone: true,
-      };
-      const res = await axios.post('/api/student', payload);
-      setStudent(res.data);
-      setCurrentPage('practice');
+        targetRole: selectedRole,
+        skills,
+        evidenceHub: connectedEvidence,
+      });
+      setStudent(student);
+      setCurrentPage('assessment');
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Something went wrong. Please try again.');
+      console.error('Onboarding error:', err);
+      setError(err.message || 'Something went wrong. Please try again.');
       setSaving(false);
     }
   };
 
   return (
     <>
-      {/* Keyframes injected inline so they're always available */}
       <style>{`
         @keyframes skillPop {
           from { opacity: 0; transform: scale(0.75) translateY(6px); }
@@ -370,20 +363,14 @@ export default function Onboarding() {
         .animate-fadein { animation: fadein 0.35s ease both; }
       `}</style>
 
-      <div
-        className="min-h-screen flex flex-col items-center justify-center px-6 py-12"
-        style={{ background: 'var(--main-bg)' }}
-      >
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#0F1117]">
         {/* Brand mark */}
         <div className="mb-10 flex items-center gap-2">
-          <span
-            className="flex items-center justify-center rounded-xl text-white text-lg font-bold"
-            style={{ width: 40, height: 40, background: 'var(--accent)' }}
-          >
+          <span className="flex items-center justify-center rounded-xl text-white text-lg font-bold w-10 h-10 bg-[#8B5CF6]">
             ⚡
           </span>
-          <span className="text-2xl font-bold text-slate-800">
-            Career <span style={{ color: 'var(--accent)' }}>OS</span>
+          <span className="text-2xl font-bold text-[#F5F7FA]">
+            Career <span className="text-[#8B5CF6]">OS</span>
           </span>
         </div>
 
@@ -392,7 +379,7 @@ export default function Onboarding() {
 
         {/* Error */}
         {error && (
-          <div className="w-full max-w-xl mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="w-full max-w-xl mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
             ⚠️ {error}
           </div>
         )}
