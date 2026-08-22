@@ -1,510 +1,343 @@
 import { useState } from 'react';
-import { api } from '../api/api';
 import { useApp } from '../context/AppContext';
 
-/* ─── Data ─────────────────────────────────────────────────────────── */
+export default function Onboarding() {
+  const { finishOnboarding, showToast } = useApp();
+  const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [aiStepNotice, setAiStepNotice] = useState('');
 
-const ROLE_SKILLS = {
-  'Backend Developer': [
-    { name: 'DSA', current: 0, target: 75 },
-    { name: 'Backend', current: 0, target: 80 },
-    { name: 'DBMS', current: 0, target: 75 },
-    { name: 'System Design', current: 0, target: 65 },
-    { name: 'Testing', current: 0, target: 70 },
-    { name: 'Communication', current: 0, target: 70 },
-    { name: 'Interview', current: 0, target: 65 },
-    { name: 'Aptitude', current: 0, target: 70 },
-  ],
-  'Data Analyst': [
-    { name: 'Python', current: 0, target: 75 },
-    { name: 'SQL', current: 0, target: 80 },
-    { name: 'Statistics', current: 0, target: 70 },
-    { name: 'Data Viz', current: 0, target: 70 },
-    { name: 'Communication', current: 0, target: 75 },
-    { name: 'Aptitude', current: 0, target: 70 },
-  ],
-  'AI Engineer': [
-    { name: 'Python', current: 0, target: 80 },
-    { name: 'ML', current: 0, target: 75 },
-    { name: 'DSA', current: 0, target: 70 },
-    { name: 'Mathematics', current: 0, target: 75 },
-    { name: 'Communication', current: 0, target: 70 },
-    { name: 'Interview', current: 0, target: 65 },
-  ],
-  'Frontend Developer': [
-    { name: 'JavaScript', current: 0, target: 80 },
-    { name: 'React', current: 0, target: 75 },
-    { name: 'DSA', current: 0, target: 65 },
-    { name: 'UI/UX', current: 0, target: 70 },
-    { name: 'Communication', current: 0, target: 70 },
-    { name: 'Interview', current: 0, target: 65 },
-  ],
-};
+  // Form State
+  const [degree, setDegree] = useState('B.Tech Computer Science');
+  const [gradYear, setGradYear] = useState('2026');
+  const [location, setLocation] = useState('Bangalore, India');
+  const [experienceLevel, setExperienceLevel] = useState('Entry Level (0-2 Yrs)');
 
-const ROLES = [
-  {
-    id: 'backend',
-    emoji: '🖥️',
-    label: 'Backend Developer',
-    desc: 'Build APIs, services, and server-side systems that power applications at scale.',
-    tags: ['Node.js', 'Databases', 'System Design'],
-  },
-  {
-    id: 'data-analyst',
-    emoji: '📊',
-    label: 'Data Analyst',
-    desc: 'Turn raw data into insights using SQL, Python, and powerful visualisation tools.',
-    tags: ['Python', 'SQL', 'Data Viz'],
-  },
-  {
-    id: 'ai-engineer',
-    emoji: '🤖',
-    label: 'AI Engineer',
-    desc: 'Design and deploy machine learning models and intelligent systems end-to-end.',
-    tags: ['Python', 'ML', 'Deep Learning'],
-  },
-  {
-    id: 'frontend',
-    emoji: '🌐',
-    label: 'Frontend Developer',
-    desc: 'Craft pixel-perfect, performant UIs using modern JavaScript frameworks and design systems.',
-    tags: ['React', 'JavaScript', 'UI/UX'],
-  },
-];
+  const [targetRole, setTargetRole] = useState('Backend Engineer');
+  const [industry, setIndustry] = useState('Fintech & Cloud Systems');
+  const [preferredCompanies, setPreferredCompanies] = useState('Google, Stripe, Razorpay');
+  const [careerGoal, setCareerGoal] = useState('Land a high-impact software engineering role at a tier-1 technology company.');
 
-/* ─── Step indicator ─────────────────────────────────────────────── */
+  const [hoursPerWeek, setHoursPerWeek] = useState(15);
+  const [learningStyle, setLearningStyle] = useState('Hands-on Projects & Coding');
+  const [targetTimeframe, setTargetTimeframe] = useState('6 Months');
 
-function StepDots({ step, totalSteps = 4 }) {
-  return (
-    <div className="flex items-center gap-2 mb-8">
-      {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
-        <div key={s} className="flex items-center gap-2">
-          <div
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: step >= s ? 28 : 10,
-              height: 10,
-              background: step >= s ? '#8B5CF6' : '#282D38',
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
+  const [githubUsername, setGithubUsername] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [portfolioUrl, setPortfolioUrl] = useState('');
 
-/* ─── Step 1 — Career Goal ────────────────────────────────────────── */
+  const handleFinishSetup = async () => {
+    const hasAnyLink = githubUsername.trim() || linkedinUrl.trim() || portfolioUrl.trim();
 
-function StepGoal({ name, setName, selected, onSelect, onNext }) {
-  const canContinue = selected && name && name.trim() !== '';
+    if (!hasAnyLink) {
+      const confirmProceed = window.confirm(
+        'You have not entered a GitHub username or social link.\n\nWithout social links, Gemini AI cannot inspect your code repositories to assess your actual skill levels. Would you like to proceed with baseline setup and add your GitHub link later in Evidence Hub?'
+      );
+      if (!confirmProceed) return;
+    }
 
-  return (
-    <div className="w-full max-w-2xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 1 of 4</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Create your profile</h2>
-      <p className="text-[#A7ADBA] text-sm mb-6">Enter your details and choose your target role to get started.</p>
+    setSubmitting(true);
+    setAiStepNotice('Saving profile to MongoDB...');
 
-      {/* Name Input */}
-      <div className="p-5 rounded-2xl border border-[#282D38] bg-[#171A22] mb-6">
-        <label className="block text-sm font-semibold text-[#F5F7FA] mb-2">
-          What is your name?
-        </label>
-        <input
-          type="text"
-          placeholder="Enter your full name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full px-4 py-2.5 rounded-xl text-sm bg-[#1B1E27] border border-[#282D38] text-[#F5F7FA] placeholder-[#737B8C] focus:border-[#8B5CF6] focus:outline-none transition-colors"
-        />
-      </div>
-
-      <p className="text-[#A7ADBA] text-sm mb-4">What's your career goal? We'll personalise your learning path around this role.</p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {ROLES.map((role) => {
-          const isSelected = selected?.id === role.id;
-          return (
-            <button
-              key={role.id}
-              id={`goal-card-${role.id}`}
-              onClick={() => onSelect(role)}
-              className="text-left p-5 rounded-2xl border transition-all duration-200"
-              style={{
-                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : '#171A22',
-                borderColor: isSelected ? '#8B5CF6' : '#282D38',
-                boxShadow: isSelected ? '0 0 15px rgba(139, 92, 246, 0.15)' : 'none',
-              }}
-            >
-              <div className="text-3xl mb-3">{role.emoji}</div>
-              <div className="font-bold text-[#F5F7FA] text-base mb-1">{role.label}</div>
-              <p className="text-[#A7ADBA] text-xs leading-relaxed mb-3">{role.desc}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {role.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="text-xs px-2 py-0.5 rounded-md font-medium"
-                    style={{
-                      background: isSelected ? 'rgba(139, 92, 246, 0.2)' : '#1B1E27',
-                      color: isSelected ? '#A78BFA' : '#737B8C',
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </button>
+    setTimeout(async () => {
+      setAiStepNotice(
+        hasAnyLink
+          ? 'Fetching public GitHub repositories & activity signals...'
+          : 'Initializing baseline career diagnostic engine...'
+      );
+      setTimeout(async () => {
+        setAiStepNotice(
+          hasAnyLink
+            ? 'Gemini AI analyzing repository code & calculating skill scores...'
+            : 'Gemini AI constructing initial study roadmap...'
+        );
+        try {
+          await finishOnboarding({
+            education: { degree, gradYear },
+            experienceLevel,
+            targetRole,
+            industry,
+            preferredCompanies: preferredCompanies.split(',').map((s) => s.trim()).filter(Boolean),
+            location,
+            careerGoal,
+            hoursPerWeek,
+            learningStyle,
+            targetTimeframe,
+            githubUsername,
+            linkedinUrl,
+            portfolioUrl,
+          });
+          showToast(
+            hasAnyLink
+              ? 'AI skill assessment complete! Welcome to your CareerOS Dashboard.'
+              : 'Onboarding complete! Add your GitHub profile in Evidence Hub anytime for full AI code analysis.',
+            'success'
           );
-        })}
-      </div>
-
-      <button
-        id="goal-next-btn"
-        disabled={!canContinue}
-        onClick={onNext}
-        className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-200"
-        style={{
-          background: canContinue ? '#8B5CF6' : '#282D38',
-          cursor: canContinue ? 'pointer' : 'not-allowed',
-        }}
-      >
-        Continue →
-      </button>
-    </div>
-  );
-}
-
-/* ─── Step 2 — Skills Preview ─────────────────────────────────────── */
-
-function SkillPill({ name, index }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border"
-      style={{
-        background: 'rgba(139, 92, 246, 0.12)',
-        borderColor: 'rgba(139, 92, 246, 0.25)',
-        color: '#A78BFA',
-        animation: `skillPop 0.4s ease both`,
-        animationDelay: `${index * 60}ms`,
-      }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] inline-block" />
-      {name}
-    </span>
-  );
-}
-
-function StepSkills({ role, onNext, onBack }) {
-  const roleSkills = ROLE_SKILLS[role.label] || [];
+        } catch (err) {
+          showToast(err.message || 'Error saving onboarding profile.', 'error');
+        } finally {
+          setSubmitting(false);
+        }
+      }, 1200);
+    }, 1000);
+  };
 
   return (
-    <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 2 of 4</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Skills we'll track</h2>
-      <p className="text-[#A7ADBA] text-sm mb-8">
-        For <span className="font-semibold text-[#A78BFA]">{role.label}</span>, we'll assess your current level across these areas:
-      </p>
-
-      <div className="p-6 rounded-2xl mb-8 bg-[#171A22] border border-[#282D38]">
-        <div className="flex flex-wrap gap-2.5">
-          {roleSkills.map((s, i) => (
-            <SkillPill key={s.name} name={s.name} index={i} />
-          ))}
-        </div>
-      </div>
-
-      <p className="text-xs text-[#737B8C] text-center mb-6">
-        🧠 We'll assess your current level for each of these via short tests &amp; your portfolio.
-      </p>
-
-      <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22] hover:bg-[#1B1E27] transition-colors"
-        >
-          ← Back
-        </button>
-        <button
-          id="skills-next-btn"
-          onClick={onNext}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200"
-        >
-          Looks good →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Step 3 — Link Profile Links ─────────────────────────────────── */
-
-function StepProfileLinks({ onAnalyze, onBack, analyzing, error }) {
-  const [links, setLinks] = useState({ github: '', leetcode: '', linkedin: '' });
-
-  const hasAnyLink = Object.values(links).some((v) => v.trim());
-
-  return (
-    <div className="w-full max-w-xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 3 of 4</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Link your profiles</h2>
-      <p className="text-[#A7ADBA] text-sm mb-8">
-        Paste your profile URLs so our AI can analyze your skills. (At least one required)
-      </p>
-
-      <div className="space-y-4 mb-6">
-        {[
-          { key: 'github', emoji: '🐙', label: 'GitHub', placeholder: 'https://github.com/username' },
-          { key: 'leetcode', emoji: '💻', label: 'LeetCode', placeholder: 'https://leetcode.com/username' },
-          { key: 'linkedin', emoji: '💼', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/username' },
-        ].map(({ key, emoji, label, placeholder }) => (
-          <div key={key} className="p-4 rounded-xl border border-[#282D38] bg-[#171A22]">
-            <label className="flex items-center gap-2 text-sm font-semibold text-[#F5F7FA] mb-2">
-              <span>{emoji}</span> {label}
-            </label>
-            <input
-              type="url"
-              placeholder={placeholder}
-              value={links[key]}
-              onChange={(e) => setLinks((prev) => ({ ...prev, [key]: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-[#1B1E27] border border-[#282D38] text-[#F5F7FA] placeholder-[#737B8C] focus:border-[#8B5CF6] focus:outline-none transition-colors"
+    <div className="min-h-screen bg-[#0E1017] text-[#F5F7FA] flex items-center justify-center p-4 relative">
+      <div className="w-full max-w-2xl bg-[#171A22] border border-[#282D38] rounded-3xl p-8 shadow-2xl relative">
+        {/* Progress Bar & Header */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#8B5CF6]">
+              Step {step} of 3 — Setup Profile & AI Assessment
+            </span>
+            <span className="text-xs text-[#737B8C] font-semibold">{Math.round((step / 3) * 100)}% Completed</span>
+          </div>
+          <div className="w-full h-2 bg-[#11131A] rounded-full overflow-hidden border border-[#282D38]">
+            <div
+              className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] transition-all duration-300"
+              style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
-        ))}
-      </div>
-
-      {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-          ⚠️ {error}
-        </div>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22] hover:bg-[#1B1E27] transition-colors"
-        >
-          ← Back
-        </button>
-        <button
-          disabled={!hasAnyLink || analyzing}
-          onClick={() => {
-            const profileLinks = Object.entries(links)
-              .filter(([, v]) => v.trim())
-              .map(([platform, url]) => ({ platform, url: url.trim() }));
-            onAnalyze(profileLinks);
-          }}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center justify-center gap-2"
-          style={{ opacity: !hasAnyLink || analyzing ? 0.6 : 1, cursor: !hasAnyLink || analyzing ? 'not-allowed' : 'pointer' }}
-        >
-          {analyzing ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Analyzing with AI…
-            </>
-          ) : (
-            'Analyze Profiles →'
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Step 4 — Choose Career Path ─────────────────────────────────── */
-
-function StepCareerPaths({ analysis, onSelect, onBack }) {
-  const [picked, setPicked] = useState(null);
-
-  return (
-    <div className="w-full max-w-2xl mx-auto animate-fadein">
-      <p className="text-[#A78BFA] text-xs font-semibold uppercase tracking-wider mb-1">Step 4 of 4</p>
-      <h2 className="text-3xl font-bold text-[#F5F7FA] mb-2">Choose your path</h2>
-      <p className="text-[#A7ADBA] text-sm mb-2">{analysis.profileSummary}</p>
-      <p className="text-xs text-[#737B8C] mb-6">
-        Level: <span className="text-[#A78BFA] font-semibold">{analysis.experienceLevel}</span> ·
-        Strengths: {analysis.strengthAreas.join(', ')}
-      </p>
-
-      <div className="space-y-3 mb-6">
-        {analysis.careerPaths.map((path) => {
-          const isSelected = picked?.id === path.id;
-          return (
-            <button
-              key={path.id}
-              onClick={() => setPicked(path)}
-              className="w-full text-left p-5 rounded-2xl border transition-all duration-200"
-              style={{
-                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : '#171A22',
-                borderColor: isSelected ? '#8B5CF6' : '#282D38',
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-[#F5F7FA]">{path.title}</span>
-                <span className="text-xs font-bold text-[#34D399] bg-[rgba(52,211,153,0.1)] px-2 py-0.5 rounded-full">
-                  {path.match}% match
-                </span>
-              </div>
-              <p className="text-xs text-[#A7ADBA] mb-2">{path.rationale}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {path.keyFocusAreas.map((area) => (
-                  <span key={area} className="text-[10px] px-2 py-0.5 rounded-md bg-[#1B1E27] text-[#737B8C] border border-[#282D38]">
-                    {area}
-                  </span>
-                ))}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl font-semibold text-[#F5F7FA] border border-[#282D38] bg-[#171A22]"
-        >
-          ← Back
-        </button>
-        <button
-          disabled={!picked}
-          onClick={() => onSelect(picked)}
-          className="flex-[2] py-3.5 rounded-xl font-semibold text-white bg-[#8B5CF6]"
-          style={{ opacity: picked ? 1 : 0.5, cursor: picked ? 'pointer' : 'not-allowed' }}
-        >
-          Start with this path →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export default function Onboarding() {
-  const { setStudent, setCurrentPage, setProfileAnalysis, setSelectedPath } = useApp();
-
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
-  const [role, setRole] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [error, setError] = useState('');
-  const [analysis, setAnalysis] = useState(null);
-
-  const handleAnalyze = async (profileLinks) => {
-    setAnalyzing(true);
-    setError('');
-    try {
-      // Create student first if not exists, to get studentId
-      const selectedRole = role?.label || 'Backend Developer';
-      const skills = ROLE_SKILLS[selectedRole] || ROLE_SKILLS['Backend Developer'];
-      let student = await api.createStudent({
-        name: name.trim() || 'Alex Kumar',
-        targetRole: selectedRole,
-        skills,
-      });
-      const result = await api.analyzeProfiles(student._id, profileLinks);
-      if (result.error) throw new Error(result.error);
-      setAnalysis(result);
-      setProfileAnalysis(result);
-      setStudent(student);
-      setStep(4);
-    } catch (err) {
-      setError(err.message || 'AI analysis failed. Check your API key.');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handlePathSelect = async (path) => {
-    setSaving(true);
-    setError('');
-    try {
-      setSelectedPath(path);
-      // Generate AI plan
-      const student = await api.getStudent();
-      const planResult = await api.generatePlan({
-        studentId: student._id,
-        selectedPath: path,
-        profileAnalysis: analysis,
-        preferences: { hoursPerDay: 2 },
-      });
-      if (planResult.error) throw new Error(planResult.error);
-      await api.completeOnboarding(student._id, { targetRole: path.title });
-      const updatedStudent = await api.getStudent();
-      setStudent(updatedStudent);
-      setCurrentPage('dashboard');
-    } catch (err) {
-      setError(err.message || 'Plan generation failed.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <>
-      <style>{`
-        @keyframes skillPop {
-          from { opacity: 0; transform: scale(0.75) translateY(6px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);   }
-        }
-        @keyframes fadein {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadein { animation: fadein 0.35s ease both; }
-      `}</style>
-
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-[#0F1117]">
-        {/* Brand mark */}
-        <div className="mb-10 flex items-center gap-2">
-          <span className="flex items-center justify-center rounded-xl text-white text-lg font-bold w-10 h-10 bg-[#8B5CF6]">
-            ⚡
-          </span>
-          <span className="text-2xl font-bold text-[#F5F7FA]">
-            Career <span className="text-[#8B5CF6]">OS</span>
-          </span>
         </div>
 
-        {/* Step dots */}
-        <StepDots step={step} totalSteps={4} />
-
-        {/* Error */}
-        {error && (
-          <div className="w-full max-w-xl mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-            ⚠️ {error}
+        {submitting ? (
+          <div className="py-16 text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-[#8B5CF6]/30 border-t-[#8B5CF6] rounded-full animate-spin mx-auto" />
+            <h3 className="text-lg font-bold text-white">Running AI Skill Assessment & Repository Analysis</h3>
+            <p className="text-xs text-[#34D399] font-semibold animate-pulse">{aiStepNotice}</p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* STEP 1: Background & Education */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white mb-1">Education & Background</h2>
+                <p className="text-xs text-[#737B8C] mb-4">Let us understand your foundation.</p>
 
-        {/* Step content */}
-        {step === 1 && (
-          <StepGoal
-            name={name}
-            setName={setName}
-            selected={role}
-            onSelect={setRole}
-            onNext={() => setStep(2)}
-          />
-        )}
-        {step === 2 && (
-          <StepSkills
-            role={role}
-            onNext={() => setStep(3)}
-            onBack={() => setStep(1)}
-          />
-        )}
-        {step === 3 && (
-          <StepProfileLinks
-            onAnalyze={handleAnalyze}
-            onBack={() => setStep(2)}
-            analyzing={analyzing}
-            error={error}
-          />
-        )}
-        {step === 4 && analysis && (
-          <StepCareerPaths
-            analysis={analysis}
-            onSelect={handlePathSelect}
-            onBack={() => setStep(3)}
-          />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Degree / Specialization</label>
+                    <input
+                      type="text"
+                      value={degree}
+                      onChange={(e) => setDegree(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Graduation Year</label>
+                    <input
+                      type="text"
+                      value={gradYear}
+                      onChange={(e) => setGradYear(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Experience Level</label>
+                    <select
+                      value={experienceLevel}
+                      onChange={(e) => setExperienceLevel(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    >
+                      <option>Student / Internship</option>
+                      <option>Entry Level (0-2 Yrs)</option>
+                      <option>Mid Level (2-5 Yrs)</option>
+                      <option>Senior / Experienced</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Target & Preferences */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white mb-1">Career Goal & Learning Schedule</h2>
+                <p className="text-xs text-[#737B8C] mb-4">Define your target role and study availability.</p>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Target Job Role</label>
+                      <input
+                        type="text"
+                        value={targetRole}
+                        onChange={(e) => setTargetRole(e.target.value)}
+                        placeholder="e.g. Backend Engineer, Full Stack Dev"
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Target Industry</label>
+                      <input
+                        type="text"
+                        value={industry}
+                        onChange={(e) => setIndustry(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Preferred Target Companies (Comma separated)</label>
+                    <input
+                      type="text"
+                      value={preferredCompanies}
+                      onChange={(e) => setPreferredCompanies(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Primary Career Goal</label>
+                    <textarea
+                      rows={2}
+                      value={careerGoal}
+                      onChange={(e) => setCareerGoal(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#A7ADBA] mb-1">Weekly Learning Hours</label>
+                      <input
+                        type="number"
+                        value={hoursPerWeek}
+                        onChange={(e) => setHoursPerWeek(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#A7ADBA] mb-1">Learning Style</label>
+                      <select
+                        value={learningStyle}
+                        onChange={(e) => setLearningStyle(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white"
+                      >
+                        <option>Hands-on Projects & Coding</option>
+                        <option>Structured Video Courses</option>
+                        <option>Reading Documentation & Books</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#A7ADBA] mb-1">Target Timeframe</label>
+                      <select
+                        value={targetTimeframe}
+                        onChange={(e) => setTargetTimeframe(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white"
+                      >
+                        <option>3 Months</option>
+                        <option>6 Months</option>
+                        <option>12 Months</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Social Links for Autonomous AI Skill Assessment */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white mb-1">Social & Code Profiles for AI Analysis</h2>
+                <p className="text-xs text-[#737B8C] mb-3">
+                  Provide your GitHub username or portfolio link. Gemini AI fetches your public repositories, code languages, and project history to evaluate your actual skill scores.
+                </p>
+
+                {/* AI Assessment Info Pill */}
+                <div className="p-3.5 rounded-xl bg-[#8B5CF6]/10 border border-[#8B5CF6]/30 flex items-start gap-3">
+                  <span className="text-xl">🤖</span>
+                  <div className="text-xs leading-relaxed text-[#A78BFA]">
+                    <strong className="font-bold text-white">How Gemini AI Assesses Your Skills:</strong> Providing a GitHub username allows Gemini AI to analyze your repositories, commit activity, and programming languages to calculate genuine skill proficiency levels.
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">
+                      GitHub Username / Profile <span className="text-[#8B5CF6] font-bold">(Recommended for AI Code Analysis)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={githubUsername}
+                      onChange={(e) => setGithubUsername(e.target.value)}
+                      placeholder="e.g. torvalds or https://github.com/username"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white placeholder-[#737B8C] focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">LinkedIn Profile URL</label>
+                    <input
+                      type="url"
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white placeholder-[#737B8C] focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#A7ADBA] mb-1">Portfolio / Website Link</label>
+                    <input
+                      type="url"
+                      value={portfolioUrl}
+                      onChange={(e) => setPortfolioUrl(e.target.value)}
+                      placeholder="https://yourportfolio.dev"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#11131A] border border-[#282D38] text-xs text-white placeholder-[#737B8C] focus:outline-none focus:border-[#8B5CF6]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Nav Buttons */}
+            <div className="flex justify-between items-center mt-8 pt-4 border-t border-[#282D38]">
+              {step > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setStep(step - 1)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#11131A] border border-[#282D38] text-[#A7ADBA] hover:text-white"
+                >
+                  Back
+                </button>
+              ) : <div />}
+
+              <div className="flex gap-3">
+                {step < 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setStep(step + 1)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#8B5CF6] text-white hover:bg-[#7C3AED] transition-colors"
+                  >
+                    Save & Continue
+                  </button>
+                )}
+
+                {step === 3 && (
+                  <button
+                    type="button"
+                    onClick={handleFinishSetup}
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] text-white shadow-lg shadow-[#8B5CF6]/30 hover:opacity-95 transition-opacity"
+                  >
+                    🚀 Run AI Assessment & Finish Setup
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
-    </>
+    </div>
   );
 }

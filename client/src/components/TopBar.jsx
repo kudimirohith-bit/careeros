@@ -19,8 +19,30 @@ function ReadinessBadge({ value }) {
   );
 }
 
+function AiStatusPill({ online }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-300"
+      style={{
+        background: online ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+        border: online ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(248, 113, 113, 0.3)',
+        color: online ? '#34D399' : '#F87171',
+      }}
+    >
+      <span
+        className="inline-block w-2 h-2 rounded-full"
+        style={{
+          background: online ? '#34D399' : '#F87171',
+          boxShadow: online ? '0 0 8px #34D399' : '0 0 8px #F87171',
+        }}
+      />
+      {online ? '🟢 AI Connected' : '🔴 AI Offline'}
+    </span>
+  );
+}
+
 export default function TopBar() {
-  const { student } = useApp();
+  const { student, aiOnline } = useApp();
 
   return (
     <header
@@ -45,14 +67,11 @@ export default function TopBar() {
 
       {/* Right Cluster */}
       <div className="flex items-center gap-4">
+        {/* AI Status Indicator */}
+        <AiStatusPill online={aiOnline ?? true} />
+
         {/* Primary Action Button */}
-        <button
-          className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs text-white transition-all hover:bg-[#7C3AED] active:scale-95"
-          style={{ background: '#8B5CF6' }}
-        >
-          <HiPlus className="text-base" />
-          <span>New Daily Mission</span>
-        </button>
+
 
         {/* Readiness Badge */}
         <ReadinessBadge value={student?.careerReadiness} />

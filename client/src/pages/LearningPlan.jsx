@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../api/api';
 import TopicStepper from '../components/TopicStepper';
+import { callGemini } from '../utils/ai';
+
+function parseJSON(raw) {
+  try {
+    const s = raw.indexOf('{');
+    const e = raw.lastIndexOf('}');
+    if (s !== -1 && e !== -1) return JSON.parse(raw.substring(s, e + 1));
+    return JSON.parse(raw);
+  } catch { return null; }
+}
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -23,111 +32,36 @@ function fmtDate(d) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/* ─── Task catalogue ─────────────────────────────────────────────── */
-const SKILL_TASKS = {
-  'DSA':           [
-    { label: 'Arrays & Hashing',          type: 'Learn',    mins: 20 },
-    { label: 'Solve 3 LeetCode Mediums',  type: 'Solve',    mins: 30 },
-    { label: 'Recursion Deep Dive',       type: 'Learn',    mins: 25 },
-    { label: 'Binary Search quiz',        type: 'Quiz',     mins: 10 },
-  ],
-  'System Design': [
-    { label: 'Load Balancers & Caching',  type: 'Learn',    mins: 20 },
-    { label: 'Design URL Shortener',      type: 'Practice', mins: 30 },
-    { label: 'Read: CAP Theorem',         type: 'Read',     mins: 15 },
-    { label: 'System Design quiz',        type: 'Quiz',     mins: 10 },
-  ],
-  'Node.js':       [
-    { label: 'Event Loop & Async/Await',  type: 'Learn',    mins: 20 },
-    { label: 'Build REST API mini-project', type: 'Practice', mins: 35 },
-    { label: 'Express middleware quiz',   type: 'Quiz',     mins: 10 },
-    { label: 'Streams & Buffers',         type: 'Learn',    mins: 20 },
-  ],
-  'JavaScript':    [
-    { label: 'Closures & Scope',          type: 'Learn',    mins: 20 },
-    { label: 'Solve JS 30 challenges',    type: 'Solve',    mins: 25 },
-    { label: 'Promises & async quiz',     type: 'Quiz',     mins: 10 },
-    { label: 'Prototype & Classes',       type: 'Learn',    mins: 20 },
-  ],
-  'React':         [
-    { label: 'Hooks: useState & useEffect', type: 'Learn', mins: 20 },
-    { label: 'Build todo with Context',   type: 'Practice', mins: 30 },
-    { label: 'React quiz: lifecycle',     type: 'Quiz',     mins: 10 },
-    { label: 'Performance optimisation',  type: 'Read',     mins: 15 },
-  ],
-  'MongoDB':       [
-    { label: 'Aggregation Pipelines',     type: 'Learn',    mins: 20 },
-    { label: 'Practice: complex queries', type: 'Practice', mins: 25 },
-    { label: 'Indexing strategies',       type: 'Read',     mins: 15 },
-    { label: 'MongoDB quiz',              type: 'Quiz',     mins: 10 },
-  ],
-  'SQL':           [
-    { label: 'JOINs & Subqueries',        type: 'Learn',    mins: 20 },
-    { label: 'Solve 5 SQL challenges',    type: 'Solve',    mins: 25 },
-    { label: 'Query optimisation',        type: 'Read',     mins: 15 },
-    { label: 'SQL quiz',                  type: 'Quiz',     mins: 10 },
-  ],
-  'Communication': [
-    { label: 'STAR method storytelling',  type: 'Learn',    mins: 15 },
-    { label: '1 mock HR question',        type: 'Practice', mins: 20 },
-    { label: 'Technical articulation',    type: 'Read',     mins: 15 },
-    { label: 'Communication self-eval',   type: 'Quiz',     mins: 10 },
-  ],
+/* ─── Fallback static plan when Claude unavailable ──────────────── */
+const FALLBACK_PLAN = {
+  monday:    [{ label: 'Core concept review',     type: 'Learn',    mins: 20, skill: 'General', description: 'Review key foundational concepts for your role.' }, { label: 'Solve practice problems', type: 'Solve', mins: 25, skill: 'General', description: 'Work through 3–4 practice coding problems.' }],
+  tuesday:   [{ label: 'System Design basics',    type: 'Learn',    mins: 20, skill: 'System Design', description: 'Study scalable system architecture patterns.' }, { label: 'Topic quiz',              type: 'Quiz',  mins: 10, skill: 'General', description: 'Test your understanding with a short quiz.' }],
+  wednesday: [{ label: 'DSA deep dive',            type: 'Solve',   mins: 30, skill: 'DSA', description: 'Practice medium-difficulty algorithm problems.' }, { label: 'Read: advanced topics',   type: 'Read',  mins: 15, skill: 'General', description: 'Read about advanced techniques and best practices.' }],
+  thursday:  [{ label: 'Build mini project',       type: 'Practice',mins: 35, skill: 'Backend', description: 'Apply concepts by building a small working project.' }, { label: 'Code review checklist',   type: 'Learn', mins: 15, skill: 'General', description: 'Review best practices for clean code.' }],
+  friday:    [{ label: 'Mock interview Q&A',       type: 'Practice',mins: 20, skill: 'Communication', description: 'Practice answering 3 common interview questions.' }, { label: 'Weekly review quiz',      type: 'Quiz',  mins: 10, skill: 'General', description: 'Consolidate the week with a summary quiz.' }],
 };
 
-const FALLBACK_TASKS = [
-  { label: 'Core concept review',    type: 'Learn',    mins: 20 },
-  { label: 'Solve practice problems', type: 'Solve',   mins: 25 },
-  { label: 'Topic quiz',             type: 'Quiz',     mins: 10 },
-  { label: 'Read: advanced topics',  type: 'Read',     mins: 15 },
-];
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
-function generatePlan(skills) {
-  const weakest = [...skills]
-    .sort((a, b) => (b.target - b.current) - (a.target - a.current))
-    .slice(0, 3);
-
-  return DAYS.map((day, i) => {
-    const skill = weakest[i % (weakest.length || 1)];
-    const pool  = SKILL_TASKS[skill?.name] ?? FALLBACK_TASKS;
-    const offset = Math.floor(i / (weakest.length || 1)) * 2;
-    const tasks  = [
-      { ...pool[(offset)     % pool.length], skill: skill?.name },
-      { ...pool[(offset + 1) % pool.length], skill: skill?.name },
-    ];
-    return { day, date: null, tasks };
-  });
-}
-
-function convertAiPlanToLocal(aiPlan) {
-  // Map AI weeklyPlans into the flat 5-day format the existing UI expects
-  const allDays = aiPlan.weeklyPlans.flatMap((w) => w.days);
+function claudePlanToLocal(claudePlan) {
   return DAYS.map((dayName, i) => {
-    const aiDay = allDays[i];
-    if (!aiDay) {
-      return { day: dayName, date: null, tasks: [] };
-    }
+    const key  = DAY_KEYS[i];
+    const raw  = claudePlan[key] ?? [];
     return {
-      day: dayName,
-      date: aiDay.date,
-      tasks: aiDay.tasks.map((t) => ({
-        id: t.id,
-        label: t.title,
-        type: mapCategory(t.category),
-        mins: t.estimatedMinutes,
-        skill: t.category,
+      day:   dayName,
+      date:  null,
+      tasks: raw.map((t) => ({
+        label:       t.label ?? 'Task',
+        type:        t.type  ?? 'Learn',
+        mins:        t.mins  ?? 20,
+        skill:       t.skill ?? '',
+        description: t.description ?? '',
       })),
     };
   });
 }
 
-function mapCategory(cat) {
-  const map = {
-    'DSA': 'Solve', 'System Design': 'Learn', 'Project': 'Practice',
-    'Learning': 'Learn', 'Revision': 'Read', 'Behavioural': 'Practice',
-  };
-  return map[cat] || 'Learn';
-}
+
 
 const TYPE_STYLE = {
   Learn:    { bg: 'rgba(139, 92, 246, 0.12)', text: '#A78BFA', border: 'rgba(139, 92, 246, 0.25)', icon: '📖' },
@@ -256,15 +190,15 @@ function DayCard({ dayData, dateObj, dayIdx, checkedMap, onToggle, onOpenStepper
           const isMatched = !selectedFilter || selectedFilter === 'All' || task.type === selectedFilter;
 
           return (
-            <button
+            <div
               key={ti}
               id={`task-${dayIdx}-${ti}`}
               onClick={() =>
                 task.type === 'Learn'
-                  ? onOpenStepper(task)
+                  ? onOpenStepper(task, dayIdx, ti)
                   : onToggle(dayIdx, ti, task, checked)
               }
-              className={`w-full text-left p-3 rounded-xl transition-all duration-200 flex items-start gap-2.5 group ${
+              className={`w-full text-left p-3 rounded-xl transition-all duration-200 flex items-start gap-2.5 group cursor-pointer ${
                 isMatched ? 'opacity-100' : 'opacity-35 grayscale'
               }`}
               style={{
@@ -272,16 +206,21 @@ function DayCard({ dayData, dateObj, dayIdx, checkedMap, onToggle, onOpenStepper
                 border: `1px solid ${checked ? 'rgba(52, 211, 153, 0.3)' : '#282D38'}`,
               }}
             >
-              {/* Checkbox */}
-              <div
-                className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all duration-200"
+              {/* Checkbox button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle(dayIdx, ti, task, checked);
+                }}
+                className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all duration-200 hover:scale-110"
                 style={{
                   background: checked ? '#34D399' : '#11131A',
                   border: `1.5px solid ${checked ? '#34D399' : '#737B8C'}`,
                 }}
               >
                 {checked && <span className="text-[#0F1117] text-[10px] font-bold leading-none">✓</span>}
-              </div>
+              </button>
 
               {/* Task info */}
               <div className="flex-1 min-w-0">
@@ -312,7 +251,7 @@ function DayCard({ dayData, dateObj, dayIdx, checkedMap, onToggle, onOpenStepper
                   </div>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -321,47 +260,81 @@ function DayCard({ dayData, dateObj, dayIdx, checkedMap, onToggle, onOpenStepper
 }
 
 export default function LearningPlan() {
-  const { student, updateStudentSkills, showToast } = useApp();
-  const skills  = student?.skills ?? [];
+  const { student, updateStudentSkills, saveLearningPlan, showToast } = useApp();
   const weekDates = getWeekDates();
 
-  const [aiPlan, setAiPlan] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(true);
-  const [checkedMap,     setCheckedMap]     = useState({});
+  const [claudePlan,     setClaudePlan]     = useState(null);
+  const [loadingAi,      setLoadingAi]      = useState(true);
   const [toasts,         setToasts]         = useState([]);
   const [fading,         setFading]         = useState(false);
   const [syncing,        setSyncing]        = useState(false);
   const [activeTask,     setActiveTask]     = useState(null);
   const [selectedFilter, setSelectedFilter] = useState('All');
-  const [viewMode,       setViewMode]       = useState('grid'); // 'grid' | 'today'
+  const [viewMode,       setViewMode]       = useState('grid');
 
-  // Load AI plan on mount
+  const [checkedMap, setCheckedMap] = useState(() => {
+    if (student?.checkedTasks && typeof student.checkedTasks === 'object') {
+      return student.checkedTasks;
+    }
+    try {
+      const saved = localStorage.getItem('careeros_checked_tasks');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  async function generateClaudePlan() {
+    setLoadingAi(true);
+    setCheckedMap({});
+    try {
+      const skills   = student?.skills ?? [];
+      const gaps     = [...skills]
+        .filter(s => s.target > s.current)
+        .sort((a, b) => (b.target - b.current) / b.target - (a.target - a.current) / a.target)
+        .slice(0, 3)
+        .map(s => `${s.name} (${s.current}/${s.target})`);
+
+      const github = student?.evidence?.githubUser ? `GitHub: @${student.evidence.githubUser}` : 'GitHub: Not linked';
+      const portfolio = student?.evidence?.portfolioUrl ? `Portfolio: ${student.evidence.portfolioUrl}` : 'Portfolio: Not linked';
+
+      const system = 'You are a study plan generator. Return ONLY a JSON object with keys "monday" through "friday", each an array of 3–4 task objects: {"label":string,"type":"Learn"|"Solve"|"Practice"|"Quiz"|"Read","mins":number,"skill":string,"description":string} description is 1 sentence explaining the task. No markdown.';
+      const user   = `Student Role: ${student?.targetRole ?? 'Software Developer'}. Evidence: ${github}, ${portfolio}. Skill gaps: ${gaps.join(', ') || 'General skills'}. Readiness: ${student?.careerReadiness ?? 50}%. Generate a personalized 5-day study plan.`;
+
+      const raw    = await callGemini(system, user);
+      const parsed = parseJSON(raw);
+      const targetPlan = (parsed?.monday) ? parsed : FALLBACK_PLAN;
+      
+      setClaudePlan(targetPlan);
+      if (saveLearningPlan) {
+        await saveLearningPlan(targetPlan, {});
+      }
+    } catch {
+      setClaudePlan(FALLBACK_PLAN);
+      if (saveLearningPlan) {
+        await saveLearningPlan(FALLBACK_PLAN, {});
+      }
+    } finally {
+      setLoadingAi(false);
+      setFading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!student?._id) return;
-    api.getPlan(student._id)
-      .then((result) => {
-        if (result?.plan) {
-          setAiPlan(result.plan);
-          const completedIds = result.plan.completedTaskIds || [];
-          const initialChecked = {};
-          const localPlan = convertAiPlanToLocal(result.plan);
-          localPlan.forEach((dayData, dIdx) => {
-            dayData.tasks.forEach((task, tIdx) => {
-              if (completedIds.includes(task.id)) {
-                initialChecked[`${dIdx}-${tIdx}`] = true;
-              }
-            });
-          });
-          setCheckedMap(initialChecked);
+    if (student) {
+      if (student.learningPlan && student.learningPlan.monday) {
+        setClaudePlan(student.learningPlan);
+        if (student.checkedTasks) {
+          setCheckedMap(student.checkedTasks);
         }
-      })
-      .catch(console.error)
-      .finally(() => setLoadingAi(false));
-  }, [student?._id]);
+        setLoadingAi(false);
+      } else {
+        generateClaudePlan();
+      }
+    }
+  }, [student]);
 
-  const plan = aiPlan
-    ? convertAiPlanToLocal(aiPlan)
-    : generatePlan(skills);
+  const plan = claudePlanToLocal(claudePlan ?? FALLBACK_PLAN);
 
   const pushToast = (message, positive) => {
     const id = Date.now();
@@ -369,34 +342,16 @@ export default function LearningPlan() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   };
 
-  const handleTaskCheck = async (taskSkillName, increment = 2) => {
-    if (!student?.skills) return;
-    const updatedSkills = student.skills.map((s) =>
-      s.name === taskSkillName
-        ? { ...s, current: Math.min(100, Math.max(0, s.current + increment)) }
-        : s
-    );
-    setSyncing(true);
-    try {
-      await updateStudentSkills(updatedSkills, `Learning Plan: completed ${taskSkillName} task`);
-      if (showToast) showToast(`+${increment}% ${taskSkillName}`);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const handleToggle = async (dayIdx, taskIdx, task, wasChecked) => {
     const key   = `${dayIdx}-${taskIdx}`;
     const delta = wasChecked ? -2 : 2;
+    const nextChecked = { ...checkedMap, [key]: !wasChecked };
 
-    setCheckedMap((prev) => ({ ...prev, [key]: !wasChecked }));
+    setCheckedMap(nextChecked);
+    try { localStorage.setItem('careeros_checked_tasks', JSON.stringify(nextChecked)); } catch {/* silent */}
 
-    if (task.id && student?._id) {
-      try {
-        await api.completeAiTask(student._id, task.id);
-      } catch (err) {
-        console.error('Failed to complete AI task:', err);
-      }
+    if (saveLearningPlan && claudePlan) {
+      saveLearningPlan(claudePlan, nextChecked);
     }
 
     if (task.skill && student?.skills) {
@@ -411,10 +366,7 @@ export default function LearningPlan() {
           updatedSkills,
           `Learning Plan: ${wasChecked ? 'uncompleted' : 'completed'} ${task.skill} task`
         );
-        pushToast(
-          `${wasChecked ? '-' : '+'}2% ${task.skill}`,
-          !wasChecked
-        );
+        pushToast(`${wasChecked ? '-' : '+'}2% ${task.skill}`, !wasChecked);
         if (showToast) showToast(`${wasChecked ? '-' : '+'}2% ${task.skill}`);
       } finally {
         setSyncing(false);
@@ -424,10 +376,7 @@ export default function LearningPlan() {
 
   const handleRegenerate = () => {
     setFading(true);
-    setCheckedMap({});
-    setTimeout(() => {
-      setFading(false);
-    }, 350);
+    generateClaudePlan();
   };
 
   const totalTasks   = plan.reduce((s, d) => s + d.tasks.length, 0);
@@ -438,6 +387,38 @@ export default function LearningPlan() {
   // Find index of today or default to 0
   const todayIdx = Math.max(0, weekDates.findIndex(d => d.toDateString() === new Date().toDateString()));
   const todayData = plan[todayIdx] || plan[0];
+
+  if (loadingAi) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Skeleton loader */}
+        <div className="rounded-2xl p-6 border border-[#282D38] bg-[#171A22] text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <span className="w-5 h-5 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-semibold text-[#A78BFA]">Generating your personalised study plan…</p>
+          </div>
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 bg-[#1B1E27] rounded-full w-full" />
+            <div className="h-3 bg-[#1B1E27] rounded-full w-5/6 mx-auto" />
+            <div className="h-3 bg-[#1B1E27] rounded-full w-4/5 mx-auto" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {DAYS.map((d) => (
+            <div key={d} className="rounded-2xl bg-[#171A22] border border-[#282D38] animate-pulse" style={{ minHeight: 250 }}>
+              <div className="h-1 bg-[#1B1E27] rounded-t-2xl" />
+              <div className="p-4 space-y-3">
+                <div className="h-3 bg-[#1B1E27] rounded-full w-2/3" />
+                <div className="h-2 bg-[#1B1E27] rounded-full w-full mt-4" />
+                <div className="h-2 bg-[#1B1E27] rounded-full w-5/6" />
+                <div className="h-2 bg-[#1B1E27] rounded-full w-4/5" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -451,11 +432,9 @@ export default function LearningPlan() {
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border border-[rgba(139,92,246,0.3)]">
                 WEEK OF {fmtDate(weekDates[0]).toUpperCase()}
               </span>
-              {aiPlan && (
-                <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border border-[rgba(139,92,246,0.3)]">
-                  {aiPlan.mode === 'interview_sprint' ? '🔥 Sprint' : '🌱 Growth'}
-                </span>
-              )}
+              <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border border-[rgba(139,92,246,0.3)]">
+                🤖 AI Generated
+              </span>
               {syncing && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[#A78BFA] font-medium">
                   <span className="w-2.5 h-2.5 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin" />
@@ -463,9 +442,7 @@ export default function LearningPlan() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-[#F5F7FA]">
-              {aiPlan ? aiPlan.planTitle : 'Your Adaptive Learning Plan'}
-            </h1>
+            <h1 className="text-2xl font-bold text-[#F5F7FA]">Your Adaptive Learning Plan</h1>
             <p className="text-xs text-[#A7ADBA]">
               Target Goal: <span className="text-[#F5F7FA] font-semibold">{student?.targetRole ?? 'Full-Stack Developer'}</span> · {totalTasks} tasks · ~{totalMins} min study time
             </p>
@@ -499,10 +476,12 @@ export default function LearningPlan() {
             <button
               id="regenerate-plan-btn"
               onClick={handleRegenerate}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border border-[#282D38] text-[#F5F7FA] bg-[#1B1E27] hover:bg-[#222633] transition-colors"
+              disabled={loadingAi}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border border-[#282D38] text-[#F5F7FA] bg-[#1B1E27] hover:bg-[#222633] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>🔄</span>
-              <span>Regenerate Plan</span>
+              {loadingAi
+                ? <><span className="w-3 h-3 border-2 border-[#A78BFA] border-t-transparent rounded-full animate-spin" /> Generating…</>
+                : <><span>✨</span><span>Generate New Plan</span></>}
             </button>
           </div>
         </div>
@@ -572,7 +551,7 @@ export default function LearningPlan() {
               dayIdx={i}
               checkedMap={checkedMap}
               onToggle={handleToggle}
-              onOpenStepper={(task) => setActiveTask({ label: task.label, skill: task.skill })}
+              onOpenStepper={(task, dIdx, tIdx) => setActiveTask({ label: task.label, skill: task.skill, dayIdx: dIdx, taskIdx: tIdx, task })}
               fading={fading}
               selectedFilter={selectedFilter}
             />
@@ -610,12 +589,8 @@ export default function LearningPlan() {
                   >
                     <button
                       id={`today-task-${todayIdx}-${ti}`}
-                      onClick={() =>
-                        task.type === 'Learn'
-                          ? setActiveTask({ label: task.label, skill: task.skill })
-                          : handleToggle(todayIdx, ti, task, checked)
-                      }
-                      className="mt-1 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center transition-colors"
+                      onClick={() => handleToggle(todayIdx, ti, task, checked)}
+                      className="mt-1 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center transition-colors hover:scale-110"
                       style={{
                         background: checked ? '#34D399' : '#11131A',
                         border: `1.5px solid ${checked ? '#34D399' : '#737B8C'}`,
@@ -646,7 +621,7 @@ export default function LearningPlan() {
 
                       {task.type === 'Learn' && (
                         <button
-                          onClick={() => setActiveTask({ label: task.label, skill: task.skill })}
+                          onClick={() => setActiveTask({ label: task.label, skill: task.skill, dayIdx: todayIdx, taskIdx: ti, task })}
                           className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#8B5CF6] text-white hover:bg-[#7C3AED] transition-colors flex items-center gap-1.5"
                         >
                           <span>🚀 Start Learn → Practice → Test Loop</span>
@@ -706,7 +681,15 @@ export default function LearningPlan() {
         <TopicStepper
           taskLabel={activeTask.label}
           skillName={activeTask.skill}
-          onClose={() => setActiveTask(null)}
+          onClose={() => {
+            if (activeTask.dayIdx !== undefined && activeTask.taskIdx !== undefined) {
+              const currentChecked = checkedMap[`${activeTask.dayIdx}-${activeTask.taskIdx}`] ?? false;
+              if (!currentChecked) {
+                handleToggle(activeTask.dayIdx, activeTask.taskIdx, activeTask.task, false);
+              }
+            }
+            setActiveTask(null);
+          }}
         />
       )}
     </div>

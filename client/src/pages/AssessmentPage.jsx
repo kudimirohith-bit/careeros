@@ -1,161 +1,38 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api/api';
 import { useApp } from '../context/AppContext';
+import { callGemini } from '../utils/ai';
 
-/* ─── Question Data ──────────────────────────────────────────────── */
-const SECTIONS = [
-  {
-    id: 'aptitude',
-    label: 'Aptitude',
-    icon: '🧮',
-    type: 'mcq',
-    questions: [
-      {
-        q: 'If a train travels 60 km in 45 minutes, what is its speed in km/h?',
-        options: ['70 km/h', '80 km/h', '90 km/h', '75 km/h'],
-        correct: 1,
-      },
-      {
-        q: 'Find the odd one out: 2, 3, 5, 7, 11, 12, 13',
-        options: ['11', '12', '13', '7'],
-        correct: 1,
-      },
-      {
-        q: 'A is 2 years older than B who is twice as old as C. If total ages = 27, how old is B?',
-        options: ['7', '8', '10', '12'],
-        correct: 2,
-      },
-      {
-        q: 'Complete the series: 1, 4, 9, 16, 25, ?',
-        options: ['30', '35', '36', '40'],
-        correct: 2,
-      },
-      {
-        q: 'If MANGO is coded as OCPIQ, how is APPLE coded?',
-        options: ['CRRNG', 'BQQMF', 'DRRNG', 'CQQNG'],
-        correct: 0,
-      },
-    ],
-  },
-  {
-    id: 'coding',
-    label: 'Coding',
-    icon: '💻',
-    type: 'mcq',
-    questions: [
-      {
-        q: 'What is the time complexity of binary search?',
-        options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'],
-        correct: 1,
-      },
-      {
-        q: 'Which data structure uses LIFO (Last In, First Out)?',
-        options: ['Queue', 'Array', 'Stack', 'Linked List'],
-        correct: 2,
-      },
-      {
-        q: 'What does REST stand for?',
-        options: [
-          'Representational State Transfer',
-          'Remote Execution Service Transfer',
-          'Reliable State Technology',
-          'Resource Entity Service Type',
-        ],
-        correct: 0,
-      },
-    ],
-  },
-  {
-    id: 'technical',
-    label: 'Technical',
-    icon: '🔧',
-    type: 'mcq',
-    questions: [
-      {
-        q: 'What is a primary key in a database?',
-        options: [
-          'A key that can be NULL',
-          'A unique identifier for each record',
-          'A foreign reference to another table',
-          'An index on a column',
-        ],
-        correct: 1,
-      },
-      {
-        q: "What does 'git commit' do?",
-        options: [
-          'Uploads changes to GitHub',
-          'Saves a snapshot of staged changes',
-          'Creates a new branch',
-          'Merges two branches',
-        ],
-        correct: 1,
-      },
-      {
-        q: 'What is the primary purpose of an API?',
-        options: [
-          'To design relational databases',
-          'To style web pages with CSS',
-          'To allow applications to communicate with each other',
-          'To host web servers',
-        ],
-        correct: 2,
-      },
-    ],
-  },
-  {
-    id: 'communication',
-    label: 'Communication',
-    icon: '🎤',
-    type: 'text',
-    questions: [
-      {
-        q: 'Describe a project you\'ve worked on in 2–3 sentences.',
-        placeholder: 'e.g. I built a web app that helps students track their study goals…',
-      },
-      {
-        q: 'Explain what Object-Oriented Programming (OOP) means to someone non-technical.',
-        placeholder: 'Imagine OOP like building with LEGO…',
-      },
-    ],
-  },
-];
+function parseJSON(raw) {
+  try {
+    // Try array first
+    const ai = raw.indexOf('[');
+    const ao = raw.lastIndexOf(']');
+    if (ai !== -1 && ao !== -1 && (raw.indexOf('{') === -1 || ai < raw.indexOf('{')))
+      return JSON.parse(raw.substring(ai, ao + 1));
+    const oi = raw.indexOf('{');
+    const oo = raw.lastIndexOf('}');
+    if (oi !== -1 && oo !== -1) return JSON.parse(raw.substring(oi, oo + 1));
+    return JSON.parse(raw);
+  } catch { return null; }
+}
 
 function clamp(v) { return Math.min(100, Math.max(0, Math.round(v))); }
 
-function computeScores(mcqAnswers, textAnswers) {
-  const pct = (sectionIdx, total) => {
-    const answers = mcqAnswers[sectionIdx] || {};
-    const correct = SECTIONS[sectionIdx].questions.filter(
-      (q, i) => answers[i] === q.correct
-    ).length;
-    return Math.round((correct / total) * 100);
-  };
+/* ── Static section shells (questions loaded from Claude) ────────── */
+const SECTION_DEFS = [
+  { id: 'aptitude',      label: 'Aptitude',      icon: '🧮', color: '#8B5CF6' },
+  { id: 'coding',        label: 'Coding',         icon: '💻', color: '#3B82F6' },
+  { id: 'communication', label: 'Communication',  icon: '🎤', color: '#34D399' },
+  { id: 'database',      label: 'Database',       icon: '🗄️', color: '#FBBF24' },
+];
 
-  const aptitude = pct(0, 5);
-  const coding = pct(1, 3);
-  const technical = pct(2, 3);
-
-  const commScore = textAnswers.reduce((sum, txt) => {
-    const words = txt.trim().split(/\s+/).filter(Boolean).length;
-    const sentences = (txt.match(/[.!?]/g) || []).length;
-    const wordScore = Math.min(words * 3, 60);
-    const structScore = Math.min(sentences * 10, 40);
-    return sum + wordScore + structScore;
-  }, 0) / (textAnswers.length || 1);
-
-  const communication = clamp(commScore);
-
-  return { aptitude, coding, technical, communication };
-}
-
-/* ─── Progress Bar ────────────────────────────────────────────────── */
+/* ── Progress Bar ────────────────────────────────────────────────── */
 function ProgressBar({ current }) {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-0 mb-3">
-        {SECTIONS.map((s, i) => {
-          const done = i < current;
+        {SECTION_DEFS.map((s, i) => {
+          const done   = i < current;
           const active = i === current;
           return (
             <div key={s.id} className="flex items-center flex-1">
@@ -163,124 +40,107 @@ function ProgressBar({ current }) {
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-base font-bold transition-all duration-300 mb-1.5"
                   style={{
-                    background: done ? '#8B5CF6' : active ? 'rgba(139, 92, 246, 0.15)' : '#1B1E27',
-                    color: done ? '#FFF' : active ? '#A78BFA' : '#737B8C',
-                    border: active ? '2px solid #8B5CF6' : '2px solid transparent',
+                    background: done ? '#8B5CF6' : active ? 'rgba(139,92,246,0.15)' : '#1B1E27',
+                    color:      done ? '#FFF'     : active ? '#A78BFA'               : '#737B8C',
+                    border:     active ? '2px solid #8B5CF6' : '2px solid transparent',
                   }}
                 >
                   {done ? '✓' : s.icon}
                 </div>
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: active ? '#A78BFA' : done ? '#737B8C' : '#525966' }}
-                >
+                <span className="text-xs font-semibold" style={{ color: active ? '#A78BFA' : done ? '#737B8C' : '#525966' }}>
                   {s.label}
                 </span>
               </div>
-              {i < SECTIONS.length - 1 && (
-                <div
-                  className="h-0.5 flex-1 mx-1 mb-5 rounded-full transition-all duration-500"
-                  style={{ background: done ? '#8B5CF6' : '#282D38' }}
-                />
+              {i < SECTION_DEFS.length - 1 && (
+                <div className="h-0.5 flex-1 mx-1 mb-5 rounded-full transition-all duration-500"
+                  style={{ background: done ? '#8B5CF6' : '#282D38' }} />
               )}
             </div>
           );
         })}
       </div>
       <div className="h-1 rounded-full bg-[#1B1E27] overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500 bg-[#8B5CF6]"
-          style={{ width: `${(current / SECTIONS.length) * 100}%` }}
-        />
+        <div className="h-full rounded-full transition-all duration-500 bg-[#8B5CF6]"
+          style={{ width: `${(current / SECTION_DEFS.length) * 100}%` }} />
       </div>
     </div>
   );
 }
 
-/* ─── MCQ Section ─────────────────────────────────────────────────── */
-function McqSection({ section, sectionIdx, answers, onChange }) {
+/* ── MCQ Question Card ───────────────────────────────────────────── */
+function McqCard({ q, qi, sectionIdx, answer, onAnswer }) {
+  const submitted = answer !== undefined;
+  const isCorrect = answer === q.correct;
+
   return (
-    <div className="space-y-4">
-      {section.questions.map((q, qi) => (
-        <div key={qi} className="p-5 rounded-xl bg-[#171A22] border border-[#282D38]">
-          <p className="font-semibold text-[#F5F7FA] text-sm mb-4 leading-relaxed flex items-start gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-[#8B5CF6]/20 text-[#A78BFA] shrink-0 mt-0.5">
-              {qi + 1}
-            </span>
-            {q.q}
-          </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {q.options.map((opt, oi) => {
-              const selected = answers[qi] === oi;
-              return (
-                <button
-                  key={oi}
-                  id={`q${sectionIdx}-${qi}-opt${oi}`}
-                  onClick={() => onChange(qi, oi)}
-                  className="text-left px-4 py-3 rounded-lg text-xs font-medium transition-all duration-150 border"
-                  style={{
-                    background: selected ? 'rgba(139, 92, 246, 0.15)' : '#1B1E27',
-                    borderColor: selected ? '#8B5CF6' : '#282D38',
-                    color: selected ? '#A78BFA' : '#A7ADBA',
-                  }}
-                >
-                  <span
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs mr-2 font-bold"
-                    style={{
-                      background: selected ? '#8B5CF6' : '#282D38',
-                      color: selected ? '#FFF' : '#737B8C',
-                    }}
-                  >
-                    {String.fromCharCode(65 + oi)}
-                  </span>
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
+    <div className="p-5 rounded-xl bg-[#171A22] border border-[#282D38] space-y-3">
+      <p className="font-semibold text-[#F5F7FA] text-sm leading-relaxed flex items-start gap-2">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-[#8B5CF6]/20 text-[#A78BFA] shrink-0 mt-0.5">
+          {qi + 1}
+        </span>
+        {q.q}
+      </p>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {q.options.map((opt, oi) => {
+          const selected  = answer === oi;
+          const isRight   = oi === q.correct;
+          let bg          = '#1B1E27';
+          let border      = '#282D38';
+          let color       = '#A7ADBA';
+
+          if (submitted) {
+            if (isRight)            { bg = 'rgba(52,211,153,0.12)'; border = 'rgba(52,211,153,0.4)'; color = '#34D399'; }
+            else if (selected)      { bg = 'rgba(248,113,113,0.12)'; border = 'rgba(248,113,113,0.4)'; color = '#F87171'; }
+          } else if (selected) {
+            bg = 'rgba(139,92,246,0.15)'; border = '#8B5CF6'; color = '#A78BFA';
+          }
+
+          return (
+            <button
+              key={oi}
+              id={`q${sectionIdx}-${qi}-opt${oi}`}
+              onClick={() => !submitted && onAnswer(qi, oi)}
+              disabled={submitted}
+              className="text-left px-4 py-3 rounded-lg text-xs font-medium transition-all duration-150 border"
+              style={{ background: bg, borderColor: border, color }}
+            >
+              <span
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs mr-2 font-bold"
+                style={{ background: submitted ? (isRight ? '#34D399' : selected ? '#F87171' : '#282D38') : (selected ? '#8B5CF6' : '#282D38'), color: '#FFF' }}
+              >
+                {String.fromCharCode(65 + oi)}
+              </span>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Explanation shown after answering */}
+      {submitted && q.explanation && (
+        <div
+          className="px-3 py-2 rounded-lg text-xs font-medium border"
+          style={{
+            background:   isCorrect ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
+            borderColor:  isCorrect ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)',
+            color:        isCorrect ? '#34D399' : '#FBBF24',
+          }}
+        >
+          {isCorrect ? '✅' : '⚠️'} {q.explanation}
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
-/* ─── Communication Section ──────────────────────────────────────── */
-function TextSection({ section, answers, onChange }) {
-  return (
-    <div className="space-y-4">
-      {section.questions.map((q, qi) => (
-        <div key={qi} className="p-5 rounded-xl bg-[#171A22] border border-[#282D38]">
-          <p className="font-semibold text-[#F5F7FA] text-sm mb-3 leading-relaxed flex items-start gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold bg-[#8B5CF6]/20 text-[#A78BFA] shrink-0 mt-0.5">
-              {qi + 1}
-            </span>
-            {q.q}
-          </p>
-          <textarea
-            id={`comm-${qi}`}
-            rows={4}
-            value={answers[qi] || ''}
-            onChange={(e) => onChange(qi, e.target.value)}
-            placeholder={q.placeholder}
-            className="w-full px-4 py-3 rounded-lg text-xs text-[#F5F7FA] resize-none outline-none transition-all duration-150 bg-[#1B1E27] border border-[#282D38] focus:border-[#8B5CF6]"
-          />
-          <p className="text-[11px] text-[#737B8C] mt-1.5 text-right">
-            {(answers[qi] || '').trim().split(/\s+/).filter(Boolean).length} words
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Results Screen ─────────────────────────────────────────────── */
-function ResultsScreen({ scores }) {
-  const bars = [
-    { label: 'Aptitude', value: scores.aptitude, color: '#8B5CF6' },
-    { label: 'Coding', value: scores.coding, color: '#3B82F6' },
-    { label: 'Technical', value: scores.technical, color: '#06B6D4' },
-    { label: 'Communication', value: scores.communication, color: '#34D399' },
-  ];
+/* ── Results Screen ─────────────────────────────────────────────── */
+function ResultsScreen({ sectionScores, aiInsight, aiSkillDeltas, onContinue }) {
+  const bars = SECTION_DEFS.map((s, i) => ({
+    label: s.label,
+    value: sectionScores[i] ?? 0,
+    color: s.color,
+  }));
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -292,13 +152,16 @@ function ResultsScreen({ scores }) {
         }
       `}</style>
       <div
-        className="p-8 rounded-2xl bg-[#171A22] border border-[#282D38] w-full max-w-md text-center"
+        className="p-8 rounded-2xl bg-[#171A22] border border-[#282D38] w-full max-w-lg text-center space-y-6"
         style={{ animation: 'resultPop 0.5s cubic-bezier(.34,1.56,.64,1) both' }}
       >
-        <div className="text-5xl mb-4">🎉</div>
-        <h2 className="text-2xl font-bold text-[#F5F7FA] mb-1">Assessment Complete!</h2>
-        <p className="text-[#A7ADBA] text-xs mb-8">Your skill profile has been calculated.</p>
+        <div>
+          <div className="text-5xl mb-3">🎉</div>
+          <h2 className="text-2xl font-bold text-[#F5F7FA]">Assessment Complete!</h2>
+          <p className="text-[#A7ADBA] text-xs mt-1">Your skill profile has been updated with AI analysis.</p>
+        </div>
 
+        {/* Score bars */}
         <div className="space-y-4 text-left">
           {bars.map(({ label, value, color }, i) => (
             <div key={label}>
@@ -309,66 +172,99 @@ function ResultsScreen({ scores }) {
               <div className="h-2 rounded-full bg-[#1B1E27] overflow-hidden">
                 <div
                   className="h-full rounded-full"
-                  style={{
-                    width: `${value}%`,
-                    background: color,
-                    animation: `barGrow 0.8s ease ${i * 0.15}s both`,
-                  }}
+                  style={{ width: `${value}%`, background: color, animation: `barGrow 0.8s ease ${i * 0.15}s both` }}
                 />
               </div>
             </div>
           ))}
         </div>
 
-        <p className="text-xs text-[#737B8C] mt-8 animate-pulse">
-          Saving results & heading to your dashboard…
-        </p>
+        {/* AI insight */}
+        {aiInsight && (
+          <div className="px-4 py-3 rounded-xl bg-[rgba(139,92,246,0.08)] border border-[rgba(139,92,246,0.25)] text-left">
+            <p className="text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider mb-1">🤖 AI Insight</p>
+            <p className="text-xs text-[#C4B5FD] leading-relaxed">{aiInsight}</p>
+          </div>
+        )}
+
+        {/* Skill deltas */}
+        {aiSkillDeltas?.length > 0 && (
+          <div className="space-y-1.5 text-left">
+            <p className="text-[10px] font-bold text-[#737B8C] uppercase tracking-wider">Skill Updates Applied</p>
+            {aiSkillDeltas.map((s, i) => (
+              <div key={i} className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-[#1B1E27] border border-[#282D38]">
+                <span className="text-[#F5F7FA] font-medium">{s.name}</span>
+                <span className="font-bold" style={{ color: s.delta >= 0 ? '#34D399' : '#F87171' }}>
+                  {s.delta >= 0 ? '+' : ''}{s.delta}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onContinue}
+          className="w-full py-3 rounded-xl font-semibold text-white bg-[#8B5CF6] hover:bg-[#7C3AED] transition-colors text-sm"
+        >
+          Go to Dashboard →
+        </button>
       </div>
     </div>
   );
 }
 
-/* ─── Main Assessment Page ──────────────────────────────────────── */
+/* ── Main Assessment Page ───────────────────────────────────────── */
 export default function AssessmentPage() {
-  const { student, setStudent, setCurrentPage } = useApp();
+  const { student, setStudent, updateStudentSkills, recordTimelineEvent, showToast, setCurrentPage } = useApp();
+  const targetRole = student?.targetRole ?? 'Software Engineer';
 
-  const [sectionIdx, setSectionIdx] = useState(0);
-  const [mcqAnswers, setMcqAnswers] = useState([{}, {}, {}]);
-  const [textAnswers, setTextAnswers] = useState(['', '']);
-  const [submitting, setSubmitting] = useState(false);
-  const [scores, setScores] = useState(null);
-  const [error, setError] = useState('');
+  const [sectionIdx,   setSectionIdx]   = useState(0);
+  const [questions,    setQuestions]    = useState({}); // { sectionId: [{q,options,correct,explanation}] }
+  const [loadingQs,    setLoadingQs]    = useState(false);
+  const [answers,      setAnswers]      = useState({}); // { sectionId: { qi: oi } }
+  const [submitting,   setSubmitting]   = useState(false);
+  const [results,      setResults]      = useState(null);
+  const [error,        setError]        = useState('');
 
+  const section = SECTION_DEFS[sectionIdx];
+
+  /* Load questions for the current section */
   useEffect(() => {
-    if (!scores) return;
-    const t = setTimeout(() => setCurrentPage('dashboard'), 2500);
-    return () => clearTimeout(t);
-  }, [scores, setCurrentPage]);
+    const sid = section.id;
+    if (questions[sid]) return; // already loaded
+    setLoadingQs(true);
+    const system = 'You generate skill assessment MCQs. Return ONLY a JSON array of 5 objects: [{"q":string,"options":[string,string,string,string],"correct":number,"explanation":string}] correct is 0-indexed. explanation is 1 sentence shown after answer. Difficulty: intermediate. No markdown.';
+    const user   = `Generate 5 MCQ questions for assessing ${section.label} skills in a ${targetRole} interview context.`;
+    callGemini(system, user)
+      .then((raw) => {
+        const parsed = parseJSON(raw);
+        if (Array.isArray(parsed) && parsed.length >= 3) {
+          setQuestions((prev) => ({ ...prev, [sid]: parsed.slice(0, 5) }));
+        } else {
+          // minimal fallback
+          setQuestions((prev) => ({ ...prev, [sid]: [{ q: `Describe a core ${section.label} concept.`, options: ['Option A', 'Option B', 'Option C', 'Option D'], correct: 0, explanation: 'Correct!' }] }));
+        }
+      })
+      .catch(() => {
+        setQuestions((prev) => ({ ...prev, [sid]: [{ q: `Describe a core ${section.label} concept.`, options: ['Option A', 'Option B', 'Option C', 'Option D'], correct: 0, explanation: 'Correct!' }] }));
+      })
+      .finally(() => setLoadingQs(false));
+  }, [sectionIdx]); // eslint-disable-line
 
-  const section = SECTIONS[sectionIdx];
-  const isLast = sectionIdx === SECTIONS.length - 1;
+  const sectionQs   = questions[section.id] ?? [];
+  const sectionAns  = answers[section.id]   ?? {};
+  const answeredCount = Object.keys(sectionAns).length;
+  const totalCount    = sectionQs.length;
+  const sectionComplete = totalCount > 0 && answeredCount === totalCount;
+  const isLast = sectionIdx === SECTION_DEFS.length - 1;
 
-  const setMcqAnswer = (qi, oi) => {
-    setMcqAnswers((prev) => {
-      const copy = [...prev];
-      copy[sectionIdx] = { ...copy[sectionIdx], [qi]: oi };
-      return copy;
-    });
+  const handleAnswer = (qi, oi) => {
+    const sid = section.id;
+    setAnswers((prev) => ({
+      ...prev,
+      [sid]: { ...(prev[sid] ?? {}), [qi]: oi },
+    }));
   };
-
-  const setTextAnswer = (qi, val) => {
-    setTextAnswers((prev) => {
-      const copy = [...prev];
-      copy[qi] = val;
-      return copy;
-    });
-  };
-
-  const answeredCount = section.type === 'mcq'
-    ? Object.keys(mcqAnswers[sectionIdx] || {}).length
-    : textAnswers.filter((t) => t.trim().length > 10).length;
-  const totalCount = section.questions.length;
-  const sectionComplete = answeredCount === totalCount;
 
   const handleNext = () => setSectionIdx((p) => p + 1);
   const handleBack = () => setSectionIdx((p) => p - 1);
@@ -377,56 +273,69 @@ export default function AssessmentPage() {
     setSubmitting(true);
     setError('');
     try {
-      const sectionScores = computeScores(mcqAnswers, textAnswers);
-      const aptScore = sectionScores.aptitude;
-      const codScore = sectionScores.coding;
-      const techScore = sectionScores.technical;
-      const commScore = sectionScores.communication;
-
-      const updatedSkills = (student?.skills || []).map((skill) => {
-        let current = skill.current;
-        switch (skill.name) {
-          case 'DSA':           current = Math.round(aptScore * 0.4 + codScore * 0.6); break;
-          case 'Backend':       current = Math.round(codScore * 0.6 + techScore * 0.4); break;
-          case 'DBMS':          current = Math.round(techScore * 0.7 + aptScore * 0.3); break;
-          case 'Aptitude':      current = aptScore; break;
-          case 'Communication': current = commScore; break;
-          case 'Interview':     current = Math.round(commScore * 0.6 + aptScore * 0.4); break;
-          case 'System Design': current = Math.round(techScore * 0.5); break;
-          case 'Testing':       current = Math.round(techScore * 0.5 + codScore * 0.2); break;
-          default:              current = Math.round((aptScore + codScore + techScore) / 3);
-        }
-        current = Math.min(100, Math.max(5, current + Math.round((Math.random() - 0.5) * 10)));
-        return { ...skill, current };
+      // Compute per-section scores (percentage)
+      const sectionScores = SECTION_DEFS.map((s) => {
+        const qs  = questions[s.id] ?? [];
+        const ans = answers[s.id]   ?? {};
+        if (!qs.length) return 0;
+        const correct = qs.filter((q, i) => ans[i] === q.correct).length;
+        return Math.round((correct / qs.length) * 100);
       });
 
-      setScores(sectionScores);
+      // Ask Claude for skill gap analysis
+      const scoreStr = SECTION_DEFS.map((s, i) => `${s.label}: ${sectionScores[i]}/100`).join(', ');
+      const system2  = 'Return ONLY JSON: {"updatedSkills":[{"name":string,"delta":number,"advice":string}],"overallInsight":string} delta is +/- integer (0–10). advice is 1 sentence per skill.';
+      const user2    = `Student completed skill assessment. Scores: ${scoreStr}. Role: ${targetRole}. Return skill adjustments and insight.`;
 
-      if (student?._id) {
-        // 1. Submit assessment record to backend
-        await api.submitAssessment({
-          studentId: student._id,
-          type: 'aptitude',
-          scores: sectionScores,
-          totalScore: Math.round((aptScore + codScore + techScore + commScore) / 4),
-        });
+      let aiInsight    = '';
+      let aiSkillDeltas = [];
 
-        // 2. Update skills on student
-        const updatedStudent = await api.updateSkills(
-          student._id,
-          updatedSkills,
-          'Initial assessment completed'
-        );
-        setStudent(updatedStudent);
+      try {
+        const raw2   = await callGemini(system2, user2);
+        const parsed = parseJSON(raw2);
+        if (parsed?.updatedSkills) {
+          aiSkillDeltas = parsed.updatedSkills;
+          aiInsight     = parsed.overallInsight ?? '';
+
+          // Apply deltas to student.skills
+          if (student?.skills) {
+            const updatedSkills = student.skills.map((skill) => {
+              const match = aiSkillDeltas.find((d) => d.name?.toLowerCase() === skill.name?.toLowerCase());
+              const delta = match?.delta ?? 0;
+              return { ...skill, current: clamp(skill.current + delta) };
+            });
+            await updateStudentSkills(updatedSkills, 'Completed Skill Assessment');
+          }
+        }
+      } catch (e) {
+        console.error('AI skill analysis failed:', e);
       }
+
+      if (recordTimelineEvent) {
+        const avgScore = Math.round(sectionScores.reduce((a, b) => a + b, 0) / (sectionScores.length || 1));
+        recordTimelineEvent('Completed Skill Assessment', 'assessment', `Average Score: ${avgScore}%`);
+      }
+      if (showToast) showToast('Skill Assessment Completed & Saved! 🎉', 'success');
+
+      setResults({ sectionScores, aiInsight, aiSkillDeltas });
     } catch (err) {
-      console.error('Assessment submission error:', err);
-      setError(err.message || 'Failed to save results. Please try again.');
+      console.error('Assessment error:', err);
+      setError(err.message || 'Failed to complete assessment. Please try again.');
+    } finally {
       setSubmitting(false);
     }
   };
 
-  if (scores) return <ResultsScreen scores={scores} />;
+  if (results) {
+    return (
+      <ResultsScreen
+        sectionScores={results.sectionScores}
+        aiInsight={results.aiInsight}
+        aiSkillDeltas={results.aiSkillDeltas}
+        onContinue={() => setCurrentPage('dashboard')}
+      />
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -446,35 +355,58 @@ export default function AssessmentPage() {
       )}
 
       <div key={section.id}>
+        {/* Section header */}
         <div className="flex items-center gap-2 mb-5">
           <span className="text-2xl">{section.icon}</span>
           <div>
             <h2 className="text-base font-bold text-[#F5F7FA]">{section.label}</h2>
             <p className="text-xs text-[#737B8C]">
-              {answeredCount}/{totalCount} answered
-              {sectionComplete && (
-                <span className="ml-2 text-[#34D399] font-semibold">✓ Complete</span>
-              )}
+              {loadingQs
+                ? 'Generating questions…'
+                : `${answeredCount}/${totalCount} answered`}
+              {sectionComplete && <span className="ml-2 text-[#34D399] font-semibold">✓ Complete</span>}
             </p>
           </div>
         </div>
 
-        {section.type === 'mcq' ? (
-          <McqSection
-            section={section}
-            sectionIdx={sectionIdx}
-            answers={mcqAnswers[sectionIdx] || {}}
-            onChange={setMcqAnswer}
-          />
-        ) : (
-          <TextSection
-            section={section}
-            answers={textAnswers}
-            onChange={setTextAnswer}
-          />
+        {/* Loading skeleton */}
+        {loadingQs && (
+          <div className="space-y-4 animate-pulse">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="p-5 rounded-xl bg-[#171A22] border border-[#282D38] space-y-3">
+                <div className="h-3 bg-[#1B1E27] rounded-full w-4/5" />
+                <div className="grid grid-cols-2 gap-2">
+                  {[1, 2, 3, 4].map((o) => <div key={o} className="h-9 bg-[#1B1E27] rounded-lg" />)}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center justify-center gap-2 py-2">
+              <span className="w-4 h-4 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-[#A78BFA] font-medium">
+                🤖 Claude is generating {section.label} questions…
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Questions */}
+        {!loadingQs && (
+          <div className="space-y-4">
+            {sectionQs.map((q, qi) => (
+              <McqCard
+                key={qi}
+                q={q}
+                qi={qi}
+                sectionIdx={sectionIdx}
+                answer={sectionAns[qi]}
+                onAnswer={handleAnswer}
+              />
+            ))}
+          </div>
         )}
       </div>
 
+      {/* Nav buttons */}
       <div className="flex items-center gap-3 mt-8">
         {sectionIdx > 0 && (
           <button
@@ -488,25 +420,18 @@ export default function AssessmentPage() {
         <div className="flex-1" />
 
         <span className="text-xs text-[#737B8C] font-medium hidden sm:block">
-          Section {sectionIdx + 1} of {SECTIONS.length}
+          Section {sectionIdx + 1} of {SECTION_DEFS.length}
         </span>
 
         {isLast ? (
           <button
             id="submit-assessment-btn"
             onClick={handleSubmit}
-            disabled={submitting}
-            className="px-8 py-3 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center gap-2 text-xs"
-            style={{
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              opacity: submitting ? 0.7 : 1,
-            }}
+            disabled={submitting || loadingQs || !sectionComplete}
+            className="px-8 py-3 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 flex items-center gap-2 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {submitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Calculating…
-              </>
+              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analysing…</>
             ) : (
               'Submit Assessment →'
             )}
@@ -515,7 +440,8 @@ export default function AssessmentPage() {
           <button
             id={`next-section-${sectionIdx}`}
             onClick={handleNext}
-            className="px-8 py-3 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 text-xs"
+            disabled={loadingQs || !sectionComplete}
+            className="px-8 py-3 rounded-xl font-semibold text-white bg-[#8B5CF6] transition-all duration-200 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Next Section →
           </button>

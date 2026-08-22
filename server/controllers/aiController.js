@@ -1,6 +1,7 @@
 import * as aiService from "../services/aiService.js";
 import CareerPlan from "../models/CareerPlan.js";
 import UserProfile from "../models/UserProfile.js";
+import User from "../models/User.js";
 
 function resolveKey(req) {
   return req.headers["x-gemini-key"] || process.env.GEMINI_API_KEY;
@@ -58,9 +59,49 @@ export const generatePlan = async (req, res) => {
   }
 };
 
-// GET /api/ai/plan?studentId=xxx
+// POST /api/ai/save-learning-plan
+export const saveLearningPlan = async (req, res) => {
+  try {
+    const { learningPlan, roadmap, checkedTasks } = req.body;
+    const userId = req.user?._id || req.body.studentId;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (learningPlan) user.learningPlan = learningPlan;
+    if (roadmap) user.roadmap = roadmap;
+    if (checkedTasks !== undefined) user.checkedTasks = checkedTasks;
+
+    await user.save();
+
+    return res.json({ success: true, user });
+  } catch (err) {
+    console.error("saveLearningPlan error:", err);
+    return res.status(500).json({ error: err.message || "Failed to save learning plan to database." });
+  }
+};
+
+// GET /api/ai/plan
 export const getPlan = async (req, res) => {
   try {
+    const userId = req.user?._id || req.query.studentId;
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user && user.learningPlan) {
+        return res.json({
+          plan: user.learningPlan,
+          roadmap: user.roadmap,
+          checkedTasks: user.checkedTasks || {},
+          user,
+        });
+      }
+    }
     const plan = await CareerPlan.findOne({ studentId: req.query.studentId, status: "active" });
     res.json({ plan: plan || null });
   } catch (err) {
@@ -160,5 +201,63 @@ export const updateInterviewDate = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Plan adaptation failed." });
+  }
+};
+
+// POST /api/ai/generate (Backend API proxy for client callGemini to keep API key hidden)
+export const generateContent = async (req, res) => {
+  try {
+    const apiKey = resolveKey(req);
+    if (!apiKey) return res.status(400).json({ error: "Gemini API key is not configured on server or header." });
+
+    const { systemPrompt, userPrompt } = req.body;
+    if (!userPrompt) return res.status(400).json({ error: "userPrompt is required." });
+
+    const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+    let lastErrorDetails = null;
+
+    for (const model of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const body = {
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
+        };
+        if (systemPrompt) {
+          body.systemInstruction = { parts: [{ text: systemPrompt }] };
+        }
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return res.json({ text });
+        } else {
+          lastErrorDetails = await response.text().catch(() => '');
+        }
+      } catch (err) {
+        lastErrorDetails = err.message;
+      }
+    }
+
+    return res.status(500).json({ error: "Gemini API failed across all model variants.", details: lastErrorDetails });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/ai/user-profile (Retrieve UserProfile data)
+export const getUserProfile = async (req, res) => {
+  try {
+    const studentId = req.query.studentId || req.user?._id;
+    const profile = await UserProfile.findOne({ studentId });
+    return res.json({ profile: profile || null });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 };

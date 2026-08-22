@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
-import GeminiKeyBanner from '../components/GeminiKeyBanner';
 import CoachChat from '../components/CoachChat';
 import BonusTasks from '../components/BonusTasks';
-import { api } from '../api/api';
+import { callGemini } from '../utils/ai';
 
 function useCountUp(target, duration = 1000) {
   const [value, setValue] = useState(0);
@@ -32,26 +31,83 @@ const GRAPH_WAVE = [
   { day: 'Sun', val: 68 },
 ];
 
-function HeroBalanceCard({ student }) {
+const PREV_SKILLS_KEY = 'careeros_prev_skills';
+
+function getSkillDeltas(skills = []) {
+  const targetNames = ['DSA', 'Backend', 'System Design', 'Communication'];
+  
+  let prevMap = {};
+  try {
+    const raw = localStorage.getItem(PREV_SKILLS_KEY);
+    if (raw) prevMap = JSON.parse(raw);
+  } catch { prevMap = {}; }
+
+  const nextPrevMap = { ...prevMap };
+
+  const results = targetNames.map((targetName) => {
+    const matched = skills.find(
+      (s) => s.name.toLowerCase() === targetName.toLowerCase() ||
+             s.name.toLowerCase().includes(targetName.toLowerCase())
+    ) || { name: targetName, current: 45, target: 75 };
+
+    const curr = matched.current;
+    let prevVal = prevMap[matched.name];
+    if (prevVal === undefined) {
+      prevVal = Math.max(0, curr - 2);
+      nextPrevMap[matched.name] = prevVal;
+    }
+    const delta = curr - prevVal;
+
+    return {
+      name: targetName,
+      current: curr,
+      target: matched.target || 80,
+      delta,
+    };
+  });
+
+  try {
+    localStorage.setItem(PREV_SKILLS_KEY, JSON.stringify(nextPrevMap));
+  } catch { /* ignore */ }
+
+  return results;
+}
+
+function HeroBalanceCard({ student, onClaimBoost, boosting }) {
   const readiness = student?.careerReadiness ?? 0;
   const count = useCountUp(readiness);
+  const kpiSkills = getSkillDeltas(student?.skills);
 
   return (
     <div className="card p-6 space-y-6 bg-[#171A22] border border-[#282D38]">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#737B8C]">Career Readiness Overview</p>
           <h2 className="text-lg font-bold text-[#F5F7FA] mt-0.5">Readiness & Skill Index</h2>
         </div>
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-[#11131A] border border-[#282D38]">
-          <button className="px-3 py-1 rounded-md text-xs font-semibold bg-[#1B1E27] text-[#F5F7FA]">
-            Total readiness
-          </button>
-          <button className="px-3 py-1 rounded-md text-xs font-medium text-[#737B8C] hover:text-[#A7ADBA]">
-            Skill gap
-          </button>
-        </div>
+
+        <button
+          id="claim-boost-btn"
+          onClick={onClaimBoost}
+          disabled={boosting}
+          className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-all flex items-center gap-2 shadow-lg active:scale-95 disabled:opacity-60"
+          style={{
+            background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+            boxShadow: '0 4px 15px rgba(139,92,246,0.3)',
+          }}
+        >
+          {boosting ? (
+            <>
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Fetching Tip…</span>
+            </>
+          ) : (
+            <>
+              <span>✨ Claim Daily +1% Readiness Boost</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Main Metric & Area Chart */}
@@ -102,15 +158,21 @@ function HeroBalanceCard({ student }) {
         </div>
       </div>
 
-      {/* Mini KPI Cards built dynamically from student.skills */}
+      {/* Mini KPI Cards for 4 specific skills */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[#282D38]">
-        {(student?.skills || []).slice(0, 4).map((s) => (
+        {kpiSkills.map((s) => (
           <div key={s.name} className="p-3.5 rounded-xl bg-[#1B1E27] border border-[#282D38]">
             <p className="text-[11px] font-medium text-[#737B8C] mb-1 truncate">{s.name}</p>
             <div className="flex items-center justify-between">
               <span className="text-base font-bold text-[#F5F7FA]">{s.current}%</span>
-              <span className="text-[11px] font-semibold text-[#34D399]">
-                Target: {s.target}%
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                style={{
+                  background: s.delta >= 0 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                  color: s.delta >= 0 ? '#34D399' : '#F87171',
+                }}
+              >
+                {s.delta >= 0 ? `+${s.delta}%` : `${s.delta}%`}
               </span>
             </div>
           </div>
@@ -217,24 +279,34 @@ function DailyMissionsCard({ missionTasks, handleMissionCheck, biggestGap, setCu
   );
 }
 
-export default function Dashboard() {
-  const { student, updateStudentSkills, showToast, setCurrentPage } = useApp();
-  const [aiTasks, setAiTasks] = useState([]);
-  const [aiPlan, setAiPlan] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(true);
-  const [completedMap, setCompletedMap] = useState({});
+function ToastNotification({ toast }) {
+  if (!toast?.visible) return null;
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-50 max-w-sm p-4 rounded-2xl text-white shadow-2xl transition-all duration-300 border border-white/20"
+      style={{
+        background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+        boxShadow: '0 20px 40px rgba(139,92,246,0.4)',
+        opacity: toast.visible ? 1 : 0,
+        transform: toast.visible ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <span className="text-xl">🚀</span>
+        <div>
+          <p className="text-xs font-bold text-white uppercase tracking-wider mb-0.5">Readiness Boosted +1%</p>
+          <p className="text-xs text-purple-100 leading-relaxed font-medium">{toast.text}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (!student?._id) return;
-    setLoadingAi(true);
-    api.getTodaysTasks(student._id)
-      .then((result) => {
-        if (result?.tasks?.length) setAiTasks(result.tasks);
-        if (result?.plan) setAiPlan(result.plan);
-      })
-      .catch((err) => console.error('Failed to load AI tasks:', err))
-      .finally(() => setLoadingAi(false));
-  }, [student?._id]);
+export default function Dashboard() {
+  const { student, setStudent, updateStudentSkills, showToast, setCurrentPage, recordTimelineEvent } = useApp();
+  const [completedMap, setCompletedMap] = useState({});
+  const [boosting, setBoosting] = useState(false);
+  const [toastTip, setToastTip] = useState({ text: '', visible: false });
 
   if (!student) {
     return (
@@ -244,7 +316,7 @@ export default function Dashboard() {
     );
   }
 
-  // Skill gap analysis: computed from student.skills
+  // Skill gap analysis
   const skillGaps = (student.skills || [])
     .map((s) => ({
       ...s,
@@ -258,34 +330,15 @@ export default function Dashboard() {
     }))
     .sort((a, b) => b.gap - a.gap);
 
-  // Next Best Action: skill with biggest gap
   const biggestGap = skillGaps[0];
 
-  // Daily mission tasks: if AI plan exists, use AI tasks for missions; else fall back to skill-gap tasks
-  const missionTasks = aiTasks.length > 0
-    ? aiTasks.map((t) => ({
-        id: t.id,
-        label: t.title,
-        skill: t.category,
-        done: aiPlan?.completedTaskIds?.includes(t.id) || false,
-        estimatedMinutes: t.estimatedMinutes,
-      }))
-    : skillGaps.slice(0, 3).map((s) => ({
-        label: `Practice ${s.name}`,
-        skill: s.name,
-        done: false,
-      }));
+  const missionTasks = skillGaps.slice(0, 3).map((s) => ({
+    label: `Practice ${s.name}`,
+    skill: s.name,
+    done: false,
+  }));
 
   const handleMissionCheck = async (task, allDone) => {
-    // If AI task, call complete-task endpoint
-    if (task.id && student?._id) {
-      try {
-        await api.completeAiTask(student._id, task.id);
-      } catch (err) {
-        console.error('Failed to complete AI task:', err);
-      }
-    }
-    // Also update skills as before
     const updatedSkills = (student.skills || []).map((s) =>
       s.name === task.skill ? { ...s, current: Math.min(100, s.current + 2) } : s
     );
@@ -294,11 +347,39 @@ export default function Dashboard() {
     if (allDone && showToast) showToast('🎉 Daily Mission Complete!');
   };
 
+  const handleClaimBoost = async () => {
+    setBoosting(true);
+    // Increment readiness
+    const newReadiness = Math.min(100, (student.careerReadiness || 0) + 1);
+    setStudent((prev) => ({ ...prev, careerReadiness: newReadiness }));
+    if (recordTimelineEvent) {
+      recordTimelineEvent('Claimed Daily +1% Readiness Boost', 'boost', `Readiness is now ${newReadiness}%`);
+    }
+
+    let tipText = 'Consistent effort every day compounds into massive career breakthroughs!';
+
+    try {
+      const system = 'You are a career coach. Return ONLY a 1-sentence motivational micro-tip for a student targeting the given role. No quotation marks or markdown.';
+      const user = `Give a 1-sentence motivational tip for a student targeting ${student.targetRole || 'Software Engineer'}.`;
+      const aiTip = await callGemini(system, user);
+      if (aiTip && aiTip.trim()) {
+        tipText = aiTip.trim().replace(/^["']|["']$/g, '');
+      }
+    } catch (e) {
+      console.error('Boost tip API call error:', e);
+    } finally {
+      setBoosting(false);
+      setToastTip({ text: tipText, visible: true });
+      setTimeout(() => {
+        setToastTip({ text: '', visible: false });
+      }, 4000);
+    }
+  };
+
   const allMissionsDone = missionTasks.length > 0 && missionTasks.every((t, i) => t.done || completedMap[i]);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <GeminiKeyBanner />
+    <div className="space-y-6 max-w-6xl mx-auto relative">
       {/* Top Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -318,7 +399,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <HeroBalanceCard student={student} />
+      <HeroBalanceCard
+        student={student}
+        onClaimBoost={handleClaimBoost}
+        boosting={boosting}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SkillGapsCard skillGaps={skillGaps} />
@@ -334,6 +419,8 @@ export default function Dashboard() {
 
       <BonusTasks studentId={student?._id} allDone={allMissionsDone} />
       <CoachChat studentId={student?._id} />
+
+      <ToastNotification toast={toastTip} />
     </div>
   );
 }

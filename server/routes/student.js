@@ -1,22 +1,22 @@
 import express from 'express';
-import Student from '../models/Student.js';
+import User from '../models/User.js';
 import Progress from '../models/Progress.js';
 import Assessment from '../models/Assessment.js';
 
 const router = express.Router();
 
-// GET first student (single-student demo)
+// GET first user (fallback endpoint)
 router.get('/', async (req, res) => {
   try {
-    const student = await Student.findOne();
-    if (!student) return res.status(404).json({ error: 'No student found' });
-    res.json(student);
+    const user = await User.findOne();
+    if (!user) return res.status(404).json({ error: 'No user found' });
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET progress history for a student
+// GET progress history for a user
 router.get('/:id/progress', async (req, res) => {
   try {
     const history = await Progress.find({ studentId: req.params.id }).sort({ date: 1 });
@@ -26,22 +26,23 @@ router.get('/:id/progress', async (req, res) => {
   }
 });
 
-// POST create new student (onboarding)
+// POST create user profile info
 router.post('/', async (req, res) => {
   try {
     const { name, targetRole, skills, evidenceHub } = req.body;
-    await Student.deleteMany({}); // single-student demo: replace
-    const student = await Student.create({
+    const user = await User.create({
       name: name || 'Alex Kumar',
-      targetRole,
-      skills,
-      evidenceHub: evidenceHub || {},
-      onboardingDone: false,
+      email: `user_${Date.now()}@careeros.dev`,
+      passwordHash: 'dummy_hash',
+      profile: { targetRole: targetRole || 'Software Engineer' },
+      skills: skills || [],
+      evidence: evidenceHub ? Object.values(evidenceHub) : [],
+      onboardingCompleted: false,
       careerReadiness: skills && skills.length
         ? Math.round(skills.reduce((s, sk) => s + sk.current, 0) / skills.length)
-        : 0,
+        : 45,
     });
-    res.status(201).json(student);
+    res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -51,27 +52,27 @@ router.post('/', async (req, res) => {
 const handleUpdateSkills = async (req, res) => {
   try {
     const { skills, activityNote } = req.body;
-    const student = await Student.findById(req.params.id);
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    student.skills = skills;
-    student.careerReadiness = Math.round(
+    user.skills = skills;
+    user.careerReadiness = Math.round(
       skills.reduce((sum, s) => sum + s.current, 0) / skills.length
     );
-    await student.save();
+    await user.save();
 
     // Save progress snapshot
     const skillSnapshot = {};
     skills.forEach((s) => { skillSnapshot[s.name] = s.current; });
     await Progress.create({
-      studentId: student._id,
-      careerReadiness: student.careerReadiness,
+      studentId: user._id,
+      careerReadiness: user.careerReadiness,
       skills: skillSnapshot,
       activityType: 'skill_update',
       note: activityNote || 'Skill updated',
     });
 
-    res.json(student);
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -84,12 +85,12 @@ router.post('/:id/update-skills', handleUpdateSkills);
 router.patch('/:id/complete-onboarding', async (req, res) => {
   try {
     const { evidenceHub, targetRole } = req.body;
-    const student = await Student.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.params.id,
-      { onboardingDone: true, evidenceHub, targetRole },
+      { onboardingCompleted: true, evidence: evidenceHub ? Object.values(evidenceHub) : [], 'profile.targetRole': targetRole },
       { returnDocument: 'after' }
     );
-    res.json(student);
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -99,17 +100,17 @@ router.patch('/:id/complete-onboarding', async (req, res) => {
 router.post('/:id/mock-interview', async (req, res) => {
   try {
     const { scores } = req.body;
-    const student = await Student.findById(req.params.id);
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
     await Assessment.create({
-      studentId: student._id,
+      studentId: user._id,
       type: 'communication',
       scores: scores || { overall: 70.6 },
     });
 
     const overallScore = Math.round(scores?.overall || 70.6);
-    let updatedSkills = [...student.skills];
+    let updatedSkills = [...(user.skills || [])];
     let foundComm = false;
 
     updatedSkills = updatedSkills.map((s) => {
@@ -124,11 +125,11 @@ router.post('/:id/mock-interview', async (req, res) => {
       updatedSkills.push({ name: 'Communication', current: overallScore, target: 85 });
     }
 
-    student.skills = updatedSkills;
-    student.careerReadiness = Math.round(
+    user.skills = updatedSkills;
+    user.careerReadiness = Math.round(
       updatedSkills.reduce((sum, s) => sum + s.current, 0) / updatedSkills.length
     );
-    const saved = await student.save();
+    const saved = await user.save();
 
     res.json(saved);
   } catch (err) {

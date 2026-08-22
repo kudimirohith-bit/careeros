@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Local Database & Logs
+.mongodb_data/
+**/.*mongodb_data*
+db_data/
+mongod.log*
+*.log
+
+# Environment Variables & Secrets
+.env
+*.env
+**/.env*
+
+# Build Outputs
+dist/
+**/dist/
+
+# OS / IDE Files
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+

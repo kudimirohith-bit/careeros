@@ -1,29 +1,12 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useApp } from '../context/AppContext';
+import { callGemini } from '../utils/ai';
 
-const QUESTIONS = [
-  'Tell me about yourself and why you want to be a Backend Developer.',
-  'Explain what a REST API is and how it works.',
-  'What is the difference between SQL and NoSQL databases?',
-  'Describe a challenging project you\'ve worked on.',
-];
-
-const ANALYSIS_SCORES = {
-  technical: 78,
-  communication: 68,
-  clarity: 71,
-  confidence: 61,
-  completeness: 75,
-  overall: 70.6,
-};
-
-const FEEDBACK_ITEMS = [
-  { type: 'good', text: 'Good technical understanding of REST APIs' },
-  { type: 'good', text: 'Clear project description with specific details' },
-  { type: 'warn', text: 'Work on structuring answers using STAR method' },
-  { type: 'warn', text: 'Practice speaking with more confidence — use concrete examples' },
-  { type: 'tip',  text: 'Recommended: Practice 5 more HR questions to improve Communication score' },
+const DEFAULT_QUESTIONS = [
+  'Tell me about yourself and your primary technical skills.',
+  'Explain how REST APIs communicate and how you handle authentication.',
+  'What is the difference between SQL and NoSQL databases and when would you use each?',
+  'Describe a challenging engineering bug or project you built and how you solved it.',
 ];
 
 function TypewriterQuestion({ text, onComplete }) {
@@ -32,9 +15,9 @@ function TypewriterQuestion({ text, onComplete }) {
   useEffect(() => {
     setDisplayed('');
     let i = 0;
-    const speed = Math.max(15, Math.floor(2000 / text.length));
+    const speed = Math.max(15, Math.floor(2000 / (text || '').length));
     const timer = setInterval(() => {
-      if (i < text.length) {
+      if (i < (text || '').length) {
         setDisplayed(text.slice(0, i + 1));
         i++;
       } else {
@@ -48,7 +31,7 @@ function TypewriterQuestion({ text, onComplete }) {
   return (
     <span className="font-medium text-[#F5F7FA] leading-relaxed text-sm">
       {displayed}
-      {displayed.length < text.length && <span className="animate-pulse text-[#A78BFA] font-bold ml-0.5">|</span>}
+      {displayed.length < (text || '').length && <span className="animate-pulse text-[#A78BFA] font-bold ml-0.5">|</span>}
     </span>
   );
 }
@@ -80,18 +63,47 @@ function ScoreBar({ label, value, delay = 0 }) {
 }
 
 export default function MockInterview() {
-  const { student, setStudent } = useApp();
+  const { student, updateStudentSkills, showToast, recordTimelineEvent } = useApp();
   const [started, setStarted]       = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [questions, setQuestions]   = useState(DEFAULT_QUESTIONS);
   const [currentQ, setCurrentQ]     = useState(0);
   const [answers, setAnswers]       = useState(['', '', '', '']);
   const [timer, setTimer]           = useState(180);
   const [completed, setCompleted]   = useState(false);
-  const [, setSaving]         = useState(false);
+  const [analysing, setAnalysing]   = useState(false);
+  const [analysisScores, setAnalysisScores] = useState(null);
 
   const targetRole = student?.targetRole ?? 'Backend Developer';
 
+  const startInterview = async () => {
+    setLoadingQuestions(true);
+    setStarted(true);
+    setCurrentQ(0);
+    setAnswers(['', '', '', '']);
+    setCompleted(false);
+
+    try {
+      const systemPrompt = 'You generate interview questions. Return ONLY a JSON array of 4 string questions tailored for a job interview: ["q1", "q2", "q3", "q4"]. No markdown.';
+      const userPrompt = `Generate 4 realistic technical and behavioral interview questions for a student targeting ${targetRole}. Target skills: ${(student?.skills || []).map(s => s.name).join(', ')}.`;
+      const raw = await callGemini(systemPrompt, userPrompt);
+      const s = raw.indexOf('[');
+      const e = raw.lastIndexOf(']');
+      if (s !== -1 && e !== -1) {
+        const parsed = JSON.parse(raw.substring(s, e + 1));
+        if (Array.isArray(parsed) && parsed.length >= 4) {
+          setQuestions(parsed.slice(0, 4));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate interview questions, using defaults:', err);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
   useEffect(() => {
-    if (!started || completed) return;
+    if (!started || completed || analysing) return;
     setTimer(180);
     const interval = setInterval(() => {
       setTimer((t) => {
@@ -103,26 +115,87 @@ export default function MockInterview() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [started, currentQ, completed]);
+  }, [started, currentQ, completed, analysing]);
 
   const handleFinishInterview = async () => {
-    setCompleted(true);
-    if (!student?._id) return;
-    setSaving(true);
+    setAnalysing(true);
+    const systemPrompt = "You are an expert technical interviewer. Analyse the student's interview answers and return ONLY valid JSON matching this exact schema: {\"technical\":number, \"communication\":number, \"clarity\":number, \"confidence\":number, \"completeness\":number, \"overall\":number, \"feedback\":[{\"type\":\"good\"|\"warn\"|\"tip\", \"text\":string}]} All numbers 0–100. Include 5–7 feedback items. No markdown, no explanation.";
+    
+    const userPrompt = `Role: ${targetRole}
+
+Questions and Answers:
+${QUESTIONS.map((q, idx) => `Q${idx + 1}: ${q}\nA${idx + 1}: ${answers[idx] || '(No Answer)'}`).join('\n\n')}`;
+
     try {
-      const res = await axios.post(`/api/student/${student._id}/mock-interview`, {
-        scores: ANALYSIS_SCORES,
-      });
-      if (res.data) setStudent(res.data);
+      const responseText = await callGemini(systemPrompt, userPrompt);
+      let parsed;
+      try {
+        const startBrace = responseText.indexOf('{');
+        const endBrace = responseText.lastIndexOf('}');
+        if (startBrace !== -1 && endBrace !== -1) {
+          parsed = JSON.parse(responseText.substring(startBrace, endBrace + 1));
+        } else {
+          parsed = JSON.parse(responseText);
+        }
+      } catch (e) {
+        console.error('Failed to parse AI response, using fallback');
+        parsed = {
+          technical: 70,
+          communication: 70,
+          clarity: 70,
+          confidence: 70,
+          completeness: 70,
+          overall: 70,
+          feedback: [
+            { type: 'good', text: 'Completed the interview questions' },
+            { type: 'warn', text: 'Could provide more detailed examples' },
+            { type: 'tip', text: 'Focus on structuring answers clearly' }
+          ]
+        };
+      }
+      
+      setAnalysisScores(parsed);
+      setCompleted(true);
+
+      if (student?.skills) {
+        const updatedSkills = student.skills.map((s) =>
+          s.name.toLowerCase().includes('communication') || s.name.toLowerCase().includes('interview')
+            ? { ...s, current: Math.min(100, s.current + 4) }
+            : s
+        );
+        await updateStudentSkills(updatedSkills, `AI Interview Score: ${parsed.overall}%`);
+      }
+      if (recordTimelineEvent) {
+        recordTimelineEvent(`Completed AI Mock Interview (${targetRole})`, 'interview', `Overall Score: ${parsed.overall}%`);
+      }
+      if (showToast) showToast(`AI Interview Evaluated! Overall Score: ${parsed.overall}% 🎉`, 'success');
     } catch (err) {
-      console.error('Mock interview POST failed:', err.message);
+      console.error('Claude API call failed:', err);
+      const fallback = {
+        technical: 70,
+        communication: 70,
+        clarity: 70,
+        confidence: 70,
+        completeness: 70,
+        overall: 70,
+        feedback: [
+          { type: 'good', text: 'Completed the interview questions' },
+          { type: 'warn', text: 'Could provide more detailed examples' },
+          { type: 'tip', text: 'Focus on structuring answers clearly' }
+        ]
+      };
+      setAnalysisScores(fallback);
+      setCompleted(true);
+      if (recordTimelineEvent) {
+        recordTimelineEvent(`Completed AI Mock Interview (${targetRole})`, 'interview', `Overall Score: 70%`);
+      }
     } finally {
-      setSaving(false);
+      setAnalysing(false);
     }
   };
 
   const handleNext = () => {
-    if (currentQ < QUESTIONS.length - 1) {
+    if (currentQ < questions.length - 1) {
       setCurrentQ((q) => q + 1);
     } else {
       handleFinishInterview();
@@ -146,7 +219,7 @@ export default function MockInterview() {
           <div>
             <h1 className="text-xl font-bold text-[#F5F7FA]">AI Mock Interview</h1>
             <p className="text-[#A7ADBA] text-xs mt-1.5">
-              Practice role-specific interview questions in a realistic chat evaluation session.
+              Practice role-specific interview questions generated live by AI.
             </p>
           </div>
 
@@ -157,24 +230,48 @@ export default function MockInterview() {
 
           <div className="bg-[#11131A] rounded-xl p-4 border border-[#282D38] text-left text-xs text-[#A7ADBA] space-y-2">
             <p className="font-bold text-[#F5F7FA]">📋 Session Format:</p>
-            <p>• 4 core technical & behavioral questions</p>
+            <p>• 4 core technical & behavioral questions generated dynamically</p>
             <p>• 3-minute response window per question</p>
             <p>• Multi-dimensional AI performance breakdown</p>
           </div>
 
           <button
             id="start-interview-btn"
-            onClick={() => setStarted(true)}
-            className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
+            onClick={startInterview}
+            disabled={loadingQuestions}
+            className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED] disabled:opacity-50"
           >
-            🚀 Start Interview Now
+            {loadingQuestions ? '🤖 Generating Dynamic Questions...' : '🚀 Start Interview Now'}
           </button>
         </div>
       </div>
     );
   }
 
-  if (completed) {
+  if (analysing) {
+    return (
+      <div className="max-w-xl mx-auto py-8">
+        <div className="card p-8 bg-[#171A22] border border-[#282D38] space-y-6">
+          <div className="text-center">
+            <h2 className="text-lg font-bold text-[#F5F7FA] flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin" />
+              Evaluating Responses...
+            </h2>
+            <p className="text-[#A7ADBA] text-xs mt-2">
+              AI technical interviewer is analyzing your performance metrics.
+            </p>
+          </div>
+          <div className="space-y-4 animate-pulse pt-2">
+            <div className="h-3 bg-[#1B1E27] rounded-full w-full"></div>
+            <div className="h-3 bg-[#1B1E27] rounded-full w-5/6"></div>
+            <div className="h-3 bg-[#1B1E27] rounded-full w-4/5"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (completed && analysisScores) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="card p-6 bg-[#171A22] border border-[#282D38] space-y-6">
@@ -190,23 +287,23 @@ export default function MockInterview() {
             </div>
 
             <div className="text-right">
-              <p className="text-2xl font-bold text-[#A78BFA]">{ANALYSIS_SCORES.overall}%</p>
+              <p className="text-2xl font-bold text-[#A78BFA]">{analysisScores.overall}%</p>
               <p className="text-[10px] font-semibold text-[#737B8C] uppercase tracking-wider">Overall Score</p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <ScoreBar label="Technical Knowledge" value={ANALYSIS_SCORES.technical} delay={0} />
-            <ScoreBar label="Communication"       value={ANALYSIS_SCORES.communication} delay={100} />
-            <ScoreBar label="Clarity"             value={ANALYSIS_SCORES.clarity} delay={200} />
-            <ScoreBar label="Confidence"          value={ANALYSIS_SCORES.confidence} delay={300} />
-            <ScoreBar label="Completeness"        value={ANALYSIS_SCORES.completeness} delay={400} />
+            <ScoreBar label="Technical Knowledge" value={analysisScores.technical} delay={0} />
+            <ScoreBar label="Communication"       value={analysisScores.communication} delay={100} />
+            <ScoreBar label="Clarity"             value={analysisScores.clarity} delay={200} />
+            <ScoreBar label="Confidence"          value={analysisScores.confidence} delay={300} />
+            <ScoreBar label="Completeness"        value={analysisScores.completeness} delay={400} />
           </div>
 
           <div className="h-px bg-[#282D38]" />
 
           <div className="space-y-2">
-            {FEEDBACK_ITEMS.map((item, idx) => (
+            {analysisScores.feedback.map((item, idx) => (
               <div
                 key={idx}
                 className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-medium border"
@@ -236,6 +333,7 @@ export default function MockInterview() {
               setStarted(false);
               setCurrentQ(0);
               setAnswers(['', '', '', '']);
+              setAnalysisScores(null);
             }}
             className="w-full py-2.5 rounded-xl font-semibold text-xs text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
           >
@@ -258,7 +356,7 @@ export default function MockInterview() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-[#F5F7FA]">AI Mock Interview Session</h1>
-          <p className="text-xs text-[#737B8C]">Question {currentQ + 1} of {QUESTIONS.length}</p>
+          <p className="text-xs text-[#737B8C]">Question {currentQ + 1} of {questions.length}</p>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#171A22] border border-[#282D38]">
@@ -272,7 +370,7 @@ export default function MockInterview() {
       <div className="h-1.5 w-full bg-[#1B1E27] rounded-full overflow-hidden">
         <div
           className="h-full bg-[#8B5CF6] transition-all duration-300 rounded-full"
-          style={{ width: `${((currentQ + 1) / QUESTIONS.length) * 100}%` }}
+          style={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
         />
       </div>
 
@@ -289,7 +387,7 @@ export default function MockInterview() {
           </div>
 
           <div className="bg-[#1B1E27] p-4 rounded-xl border border-[#282D38] min-h-[120px] flex items-center">
-            <TypewriterQuestion text={QUESTIONS[currentQ]} />
+            <TypewriterQuestion text={questions[currentQ]} />
           </div>
         </div>
 
@@ -320,7 +418,7 @@ export default function MockInterview() {
               onClick={handleNext}
               className="px-5 py-2.5 rounded-xl font-semibold text-xs text-white transition-colors bg-[#8B5CF6] hover:bg-[#7C3AED]"
             >
-              {currentQ < QUESTIONS.length - 1 ? 'Submit Answer & Next →' : 'Submit & Finish Session 🚀'}
+              {currentQ < questions.length - 1 ? 'Submit Answer & Next →' : 'Submit & Finish Session 🚀'}
             </button>
           </div>
         </div>

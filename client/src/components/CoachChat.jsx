@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { api } from '../api/api';
+import { callGemini } from '../utils/ai';
+import { useApp } from '../context/AppContext';
 
-export default function CoachChat({ studentId }) {
+export default function CoachChat() {
+  const { student } = useApp();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -13,10 +15,11 @@ export default function CoachChat({ studentId }) {
     setInput('');
     setLoading(true);
     try {
-      const result = await api.getCoachMessage(studentId, userMsg);
-      setMessages((prev) => [...prev, { role: 'coach', text: result.message }]);
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: 'coach', text: 'Sorry, I couldn\'t connect. Try again.' }]);
+      const system = `You are a supportive, high-energy Placement & Career Coach for CareerOS. Target role: ${student?.targetRole || 'Software Engineer'}. Keep responses concise, actionable, and under 3 sentences.`;
+      const reply = await callGemini(system, userMsg);
+      setMessages((prev) => [...prev, { role: 'coach', text: reply || 'Keep pushing forward! You are making great progress.' }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: 'coach', text: "Sorry, I couldn't connect right now. Keep practicing!" }]);
     } finally {
       setLoading(false);
     }
@@ -27,7 +30,7 @@ export default function CoachChat({ studentId }) {
       <button
         id="coach-chat-toggle"
         onClick={() => { setOpen(true); if (!messages.length) send(); }}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#8B5CF6] text-white text-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform z-50"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#8B5CF6] text-white text-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform z-40"
         title="AI Coach"
       >
         🤖
@@ -36,7 +39,7 @@ export default function CoachChat({ studentId }) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-80 max-h-[28rem] rounded-2xl bg-[#171A22] border border-[#282D38] shadow-2xl flex flex-col z-50 overflow-hidden">
+    <div className="fixed bottom-6 right-6 w-80 max-h-[28rem] rounded-2xl bg-[#171A22] border border-[#282D38] shadow-2xl flex flex-col z-40 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#282D38] bg-[#11131A]">
         <div className="flex items-center gap-2">
